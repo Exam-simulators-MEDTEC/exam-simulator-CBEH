@@ -779,8 +779,30 @@ h1, h2, h3, h4, h5 {
 }
 
 .keyboard-helper {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.keyboard-helper kbd {
+  display: inline-block;
+  padding: 0.1rem 0.35rem;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-accent);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.keyboard-helper .helper-sep {
+  color: var(--border-color);
 }
 
 /* SIDEBAR EXAM NAVIGATION */
@@ -1946,4 +1968,434 @@ h1, h2, h3, h4, h5 {
   font-size: 0.8rem;
   color: var(--text-muted);
   line-height: 1.4;
+}
+
+/* ==========================================
+   KEYBOARD SHORTCUT BADGES & DISCOVERABILITY
+   ========================================== */
+
+/* Option item shortcut key badge */
+.shortcut-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 5px;
+  margin-right: 0.85rem;
+  font-family: var(--font-heading);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.option-item:hover .shortcut-key-badge,
+.option-item.selected .shortcut-key-badge {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 8px rgba(99, 102, 241, 0.25);
+}
+
+body[data-palette="green"] .option-item:hover .shortcut-key-badge,
+body[data-palette="green"] .option-item.selected .shortcut-key-badge {
+  background: rgba(0, 212, 122, 0.15);
+  box-shadow: 0 0 8px rgba(0, 212, 122, 0.25);
+}
+
+body[data-palette="amber"] .option-item:hover .shortcut-key-badge,
+body[data-palette="amber"] .option-item.selected .shortcut-key-badge {
+  background: rgba(245, 158, 11, 0.15);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+body[data-palette="rose"] .option-item:hover .shortcut-key-badge,
+body[data-palette="rose"] .option-item.selected .shortcut-key-badge {
+  background: rgba(244, 63, 94, 0.15);
+  box-shadow: 0 0 8px rgba(244, 63, 94, 0.25);
+}
+
+body[data-palette="slate"] .option-item:hover .shortcut-key-badge,
+body[data-palette="slate"] .option-item.selected .shortcut-key-badge {
+  background: rgba(148, 163, 184, 0.15);
+  box-shadow: 0 0 8px rgba(148, 163, 184, 0.25);
+}
+
+/* Option item pulse on keyboard activation */
+.option-item.shortcut-active {
+  transform: scale(1.015) translateX(4px);
+  background: rgba(99, 102, 241, 0.18);
+  border-color: var(--color-primary);
+}
+
+body[data-palette="green"] .option-item.shortcut-active {
+  background: rgba(0, 212, 122, 0.18);
+}
+
+body[data-palette="amber"] .option-item.shortcut-active {
+  background: rgba(245, 158, 11, 0.18);
+}
+
+body[data-palette="rose"] .option-item.shortcut-active {
+  background: rgba(244, 63, 94, 0.18);
+}
+
+body[data-palette="slate"] .option-item.shortcut-active {
+  background: rgba(148, 163, 184, 0.18);
+}
+
+/* Button embedded keyboard hint badges */
+.btn-kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  font-family: var(--font-heading);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  margin-left: 0.4rem;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  user-select: none;
+  line-height: 1;
+}
+
+.btn:hover .btn-kbd-hint,
+.btn-bookmark:hover .btn-kbd-hint {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ==========================================
+   QUESTION DATABASE TOOLBAR & SEARCH
+   ========================================== */
+.db-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.db-search-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.db-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.db-search-input {
+  width: 100%;
+  padding: 0.65rem 2.25rem 0.65rem 2.4rem;
+  font-size: 0.9rem;
+  font-family: var(--font-body);
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.db-search-input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+body[data-palette="green"] .db-search-input:focus {
+  box-shadow: 0 0 0 2px rgba(0, 212, 122, 0.2);
+}
+
+body[data-palette="amber"] .db-search-input:focus {
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+}
+
+body[data-palette="rose"] .db-search-input:focus {
+  box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.2);
+}
+
+body[data-palette="slate"] .db-search-input:focus {
+  box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.2);
+}
+
+.db-search-clear-btn {
+  position: absolute;
+  right: 0.65rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.db-search-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Filter Controls Row */
+.db-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.db-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.db-filter-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.db-filter-select {
+  padding: 0.4rem 0.65rem;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.db-filter-select:focus {
+  border-color: var(--border-focus);
+}
+
+.db-filter-select option {
+  background: #1e293b;
+  color: #ffffff;
+}
+
+.db-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.db-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+
+.db-filter-btn.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+body[data-palette="green"] .db-filter-btn.active {
+  background: rgba(0, 212, 122, 0.2);
+}
+
+body[data-palette="amber"] .db-filter-btn.active {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+body[data-palette="rose"] .db-filter-btn.active {
+  background: rgba(244, 63, 94, 0.2);
+}
+
+body[data-palette="slate"] .db-filter-btn.active {
+  background: rgba(148, 163, 184, 0.2);
+}
+
+.db-filter-btn.active .db-filter-star-icon {
+  fill: var(--color-primary);
+}
+
+.db-filter-reset-btn {
+  background: none;
+  border: none;
+  color: #f87171;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.2rem 0.4rem;
+  margin-left: auto;
+  transition: opacity 0.2s ease;
+}
+
+.db-filter-reset-btn:hover {
+  opacity: 0.8;
+}
+
+/* Stats Bar */
+.db-stats-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Search Term Highlight */
+.db-highlight {
+  background: rgba(99, 102, 241, 0.3);
+  color: #ffffff;
+  border-radius: 3px;
+  padding: 0.05rem 0.2rem;
+  border-bottom: 1.5px solid var(--color-primary);
+  font-weight: 600;
+}
+
+body[data-palette="green"] .db-highlight {
+  background: rgba(0, 212, 122, 0.3);
+}
+
+body[data-palette="amber"] .db-highlight {
+  background: rgba(245, 158, 11, 0.3);
+}
+
+body[data-palette="rose"] .db-highlight {
+  background: rgba(244, 63, 94, 0.3);
+}
+
+body[data-palette="slate"] .db-highlight {
+  background: rgba(148, 163, 184, 0.3);
+}
+
+/* Card Bookmark Button */
+.db-item-bookmark-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.db-item-bookmark-btn:hover {
+  color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.db-item-bookmark-btn.bookmarked {
+  color: var(--color-primary);
+}
+
+/* Empty State */
+.db-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2.5rem 1rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+}
+
+/* PDF Download Button Styling */
+#downloadPdfBtn {
+  transition: all 0.2s ease;
+}
+
+#downloadPdfBtn:hover {
+  background: rgba(56, 189, 248, 0.22) !important;
+  border-color: rgba(56, 189, 248, 0.6) !important;
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+  transform: translateY(-1px);
+}
+
+#downloadPdfBtn:active {
+  transform: translateY(0);
+}
+
+/* Print Stylesheet */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+  
+  header,
+  .results-footer,
+  .tab-control,
+  .sidebar-panel,
+  .navigation-controls,
+  .db-toolbar,
+  #custom-modal-overlay {
+    display: none !important;
+  }
+  
+  .screen {
+    display: none !important;
+  }
+  
+  #screen-results.active {
+    display: block !important;
+  }
+  
+  .results-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: #111827 !important;
+  }
+  
+  .module-result-card,
+  .review-item-card {
+    background: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+    color: #111827 !important;
+    page-break-inside: avoid;
+  }
 }

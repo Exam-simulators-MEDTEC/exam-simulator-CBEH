@@ -220,18 +220,112 @@ document.addEventListener("DOMContentLoaded", () => {
   const openQuestionsGradingList = document.getElementById("open-questions-grading-list");
   const autoQuestionsReviewList = document.getElementById("auto-questions-review-list");
 
-  // Keyboard Navigation Helpers
+  // ==========================================
+  // EXAM KEYBOARD SHORTCUTS & NAVIGATION (M2 / R2)
+  // ==========================================
+  function selectOptionByIndex(index) {
+    if (!state.questions || state.questions.length === 0) return;
+    const q = state.questions[state.currentQuestionIndex];
+    if (!q) return;
+
+    if (q.type === "multiple-choice" || q.type === "true-false" || q.type === "fill-in-the-gap") {
+      const optionItems = answerInputsArea.querySelectorAll(".option-item");
+      if (index >= 0 && index < optionItems.length) {
+        const targetItem = optionItems[index];
+        const radio = targetItem.querySelector("input[type='radio']");
+        if (radio) {
+          radio.checked = true;
+          radio.dispatchEvent(new Event("change"));
+          targetItem.classList.add("shortcut-active");
+          setTimeout(() => targetItem.classList.remove("shortcut-active"), 180);
+        }
+      }
+    }
+  }
+
   document.addEventListener("keydown", (e) => {
-    // Only navigate with keyboard if on the exam screen
-    if (screenExam.classList.contains("active")) {
-      // Do not trigger navigation if user is writing in the open text box
-      if (document.activeElement && document.activeElement.tagName === "TEXTAREA") {
+    // 1. Modifier keys guard: Never intercept system/browser shortcut combinations (Cmd+R, Ctrl+C, Cmd+P, etc.)
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      return;
+    }
+
+    // 2. Screen guard: Only active on the exam screen
+    if (!screenExam || !screenExam.classList.contains("active")) {
+      return;
+    }
+
+    // 3. State guard: Only active if an exam is ongoing and unsubmitted
+    if (!state.questions || state.questions.length === 0 || state.isExamSubmitted) {
+      return;
+    }
+
+    // 4. Modal overlay guard: Disable shortcuts when any custom modal dialog is open
+    if (document.querySelector(".custom-modal-overlay.active")) {
+      return;
+    }
+
+    // 5. Input / Textarea / Select focus guard: Allow standard text typing during open questions or forms
+    const activeEl = document.activeElement;
+    if (activeEl) {
+      const tagName = activeEl.tagName ? activeEl.tagName.toUpperCase() : "";
+      if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || activeEl.isContentEditable) {
         return;
       }
-      if (e.key === "ArrowLeft") {
-        handlePrevQuestion();
-      } else if (e.key === "ArrowRight") {
-        handleNextQuestion();
+    }
+
+    const key = e.key ? e.key.toLowerCase() : "";
+    const code = e.code || "";
+    const currentQ = state.questions[state.currentQuestionIndex];
+
+    // Navigation: Previous Question (Left Arrow or P)
+    if (key === "arrowleft" || key === "p" || code === "ArrowLeft" || code === "KeyP") {
+      e.preventDefault();
+      handlePrevQuestion();
+      return;
+    }
+
+    // Navigation: Next Question (Right Arrow or N)
+    if (key === "arrowright" || key === "n" || code === "ArrowRight" || code === "KeyN") {
+      e.preventDefault();
+      handleNextQuestion();
+      return;
+    }
+
+    // Bookmark Toggle: M
+    if (key === "m" || code === "KeyM") {
+      e.preventDefault();
+      if (btnBookmarkQuestion) {
+        btnBookmarkQuestion.click();
+      }
+      return;
+    }
+
+    // Option Selection: A (1), B (2), C (3), D (4), E (5)
+    if (currentQ) {
+      if (key === "1" || key === "a" || code === "Digit1" || code === "Numpad1" || code === "KeyA") {
+        e.preventDefault();
+        selectOptionByIndex(0);
+      } else if (key === "2" || key === "b" || code === "Digit2" || code === "Numpad2" || code === "KeyB") {
+        e.preventDefault();
+        selectOptionByIndex(1);
+      } else if (key === "3" || key === "c" || code === "Digit3" || code === "Numpad3" || code === "KeyC") {
+        e.preventDefault();
+        selectOptionByIndex(2);
+      } else if (key === "4" || key === "d" || code === "Digit4" || code === "Numpad4" || code === "KeyD") {
+        e.preventDefault();
+        selectOptionByIndex(3);
+      } else if (key === "5" || key === "e" || code === "Digit5" || code === "Numpad5" || code === "KeyE") {
+        e.preventDefault();
+        selectOptionByIndex(4);
+      } else if (currentQ.type === "true-false") {
+        // True / False specific letter bindings
+        if (key === "t" || code === "KeyT") {
+          e.preventDefault();
+          selectOptionByIndex(0);
+        } else if (key === "f" || code === "KeyF") {
+          e.preventDefault();
+          selectOptionByIndex(1);
+        }
       }
     }
   });
@@ -814,7 +908,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const optionsList = document.createElement("div");
       optionsList.className = "options-list";
       
-      q.options.forEach(option => {
+      q.options.forEach((option, idx) => {
         const optionVal = option.charAt(0); // A, B, C, D, E
         const label = document.createElement("label");
         label.className = `option-item ${existingAnswer === optionVal ? 'selected' : ''}`;
@@ -831,12 +925,17 @@ document.addEventListener("DOMContentLoaded", () => {
           label.classList.add("selected");
           saveAnswer();
         });
+
+        const badge = document.createElement("kbd");
+        badge.className = "shortcut-key-badge";
+        badge.textContent = String.fromCharCode(65 + idx); // A, B, C, D, E
         
         const span = document.createElement("span");
         span.className = "option-text";
         span.textContent = option;
         
         label.appendChild(radio);
+        label.appendChild(badge);
         label.appendChild(span);
         optionsList.appendChild(label);
       });
@@ -847,7 +946,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const optionsList = document.createElement("div");
       optionsList.className = "options-list";
       
-      q.options.forEach(option => {
+      q.options.forEach((option, idx) => {
         const label = document.createElement("label");
         label.className = `option-item ${existingAnswer === option ? 'selected' : ''}`;
         
@@ -862,12 +961,17 @@ document.addEventListener("DOMContentLoaded", () => {
           label.classList.add("selected");
           saveAnswer();
         });
+
+        const badge = document.createElement("kbd");
+        badge.className = "shortcut-key-badge";
+        badge.textContent = idx === 0 ? "1 / T" : "2 / F";
         
         const span = document.createElement("span");
         span.className = "option-text";
         span.textContent = option;
         
         label.appendChild(radio);
+        label.appendChild(badge);
         label.appendChild(span);
         optionsList.appendChild(label);
       });
@@ -911,7 +1015,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const optionsList = document.createElement("div");
       optionsList.className = "options-list";
       
-      q.options.forEach(option => {
+      q.options.forEach((option, idx) => {
         const label = document.createElement("label");
         label.className = `option-item ${existingAnswer === option ? 'selected' : ''}`;
         
@@ -931,12 +1035,17 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           saveAnswer();
         });
+
+        const badge = document.createElement("kbd");
+        badge.className = "shortcut-key-badge";
+        badge.textContent = String.fromCharCode(65 + idx); // A, B, C, D
         
         const span = document.createElement("span");
         span.className = "option-text";
         span.textContent = option;
         
         label.appendChild(radio);
+        label.appendChild(badge);
         label.appendChild(span);
         optionsList.appendChild(label);
       });
@@ -2618,58 +2727,217 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // ==========================================
+  // QUESTION DATABASE SEARCH & FILTER (M1 / R1)
+  // ==========================================
+  const dbFilterState = {
+    query: "",
+    module: "all",
+    type: "all",
+    bookmarkedOnly: false
+  };
+
+  function escapeRegExp(string) {
+    if (!string || typeof string !== "string") return "";
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  function escapeHTML(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
+  function matchQuestionAgainstFilter(q, filterState) {
+    // 1. Module Filter
+    if (filterState.module !== "all") {
+      if ((q.module || "").toLowerCase() !== filterState.module.toLowerCase()) {
+        return false;
+      }
+    }
+
+    // 2. Question Type Filter
+    if (filterState.type !== "all") {
+      if (q.type !== filterState.type) {
+        return false;
+      }
+    }
+
+    // 3. Bookmarked Only Filter
+    if (filterState.bookmarkedOnly) {
+      const isBookmarked = state.bookmarks.some(b => b.question === q.question);
+      if (!isBookmarked) {
+        return false;
+      }
+    }
+
+    // 4. Keyword Query Matching
+    const rawQuery = (filterState.query || "").trim().toLowerCase();
+    if (!rawQuery) {
+      return true;
+    }
+
+    // Extract searchable corpus from all question fields
+    const parts = [
+      q.question || "",
+      q.module || "",
+      q.type || "",
+      q.sourceFilename || "",
+      q.correctAnswer || "",
+      q.modelAnswer || "",
+      q.explanation || ""
+    ];
+
+    if (Array.isArray(q.options)) {
+      parts.push(...q.options);
+    }
+    if (Array.isArray(q.leftItems)) {
+      parts.push(...q.leftItems);
+    }
+    if (Array.isArray(q.rightItems)) {
+      parts.push(...q.rightItems);
+    }
+    if (Array.isArray(q.statements)) {
+      q.statements.forEach(s => {
+        if (s.text) parts.push(s.text);
+        if (s.statement) parts.push(s.statement);
+        if (s.explanation) parts.push(s.explanation);
+      });
+    }
+
+    const corpus = parts.join(" ").toLowerCase();
+    const tokens = rawQuery.split(/\s+/).filter(Boolean);
+    return tokens.every(token => corpus.includes(token));
+  }
+
+  function highlightSearchTerms(text, query) {
+    if (!text || typeof text !== "string") return text || "";
+    const cleanQuery = (query || "").trim();
+    if (!cleanQuery) return escapeHTML(text);
+
+    const tokens = cleanQuery.split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return escapeHTML(text);
+
+    let escapedText = escapeHTML(text);
+    tokens.forEach(token => {
+      const escapedToken = escapeRegExp(escapeHTML(token));
+      if (escapedToken) {
+        const regex = new RegExp(`(${escapedToken})`, "gi");
+        escapedText = escapedText.replace(regex, `<mark class="db-highlight">$1</mark>`);
+      }
+    });
+
+    return escapedText;
+  }
+
   // --- QUESTION PREVIEW & DATABASE EXPLORER ---
-  function renderQuestionDetailHTML(q) {
+  function renderQuestionDetailHTML(q, query = "") {
     const item = document.createElement("div");
     item.className = "db-question-item";
 
     const header = document.createElement("div");
     header.className = "db-question-header";
 
+    const leftMeta = document.createElement("div");
+    leftMeta.style.cssText = "display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;";
+
     const badge = document.createElement("span");
     badge.className = "db-question-type-badge";
-    badge.textContent = q.type || "Question";
+    badge.textContent = q.type ? q.type.replace("-", " ") : "Question";
 
     const src = document.createElement("span");
     src.className = "db-question-source";
     src.textContent = q.sourceFilename ? `Source: ${q.sourceFilename}` : "Default Bank";
 
-    header.appendChild(badge);
-    header.appendChild(src);
+    leftMeta.appendChild(badge);
+    leftMeta.appendChild(src);
+
+    // Bookmark Toggle Button on Card
+    const btnBookmark = document.createElement("button");
+    btnBookmark.className = "db-item-bookmark-btn";
+    btnBookmark.title = "Bookmark question";
+    btnBookmark.type = "button";
+    
+    const isBookmarked = state.bookmarks.some(b => b.question === q.question);
+    btnBookmark.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="${isBookmarked ? 'var(--color-primary)' : 'none'}" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+      </svg>
+    `;
+    if (isBookmarked) btnBookmark.classList.add("bookmarked");
+
+    btnBookmark.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const idx = state.bookmarks.findIndex(b => b.question === q.question);
+      if (idx >= 0) {
+        state.bookmarks.splice(idx, 1);
+        btnBookmark.classList.remove("bookmarked");
+        const svg = btnBookmark.querySelector("svg");
+        if (svg) svg.setAttribute("fill", "none");
+      } else {
+        state.bookmarks.push(JSON.parse(JSON.stringify(q)));
+        btnBookmark.classList.add("bookmarked");
+        const svg = btnBookmark.querySelector("svg");
+        if (svg) svg.setAttribute("fill", "var(--color-primary)");
+      }
+      localStorage.setItem("cbeh_bookmarks", JSON.stringify(state.bookmarks));
+      
+      // Update Bookmarks tab header counter
+      if (welcomeTabBookmarks) {
+        welcomeTabBookmarks.textContent = `Bookmarks (${state.bookmarks.length})`;
+      }
+      
+      // If bookmarked-only filter is active, re-render database view
+      if (dbFilterState.bookmarkedOnly) {
+        renderDatabaseUI();
+      }
+    });
+
+    header.appendChild(leftMeta);
+    header.appendChild(btnBookmark);
     item.appendChild(header);
 
+    // Question prompt with highlighting
     const text = document.createElement("div");
     text.className = "db-question-text";
-    text.textContent = `${q.id ? q.id + '. ' : ''}${q.question}`;
+    const prefix = q.id ? `${q.id}. ` : "";
+    text.innerHTML = prefix + highlightSearchTerms(q.question, query);
     item.appendChild(text);
 
-    // Options list
+    // Options list with highlighting
     if (q.options && q.options.length > 0) {
       const optsContainer = document.createElement("div");
       optsContainer.className = "db-question-options";
       q.options.forEach(opt => {
         const optDiv = document.createElement("div");
-        optDiv.textContent = opt;
+        optDiv.innerHTML = highlightSearchTerms(opt, query);
         optsContainer.appendChild(optDiv);
       });
       item.appendChild(optsContainer);
     } else if (q.type === "matching" && q.leftItems && q.rightItems) {
       const optsContainer = document.createElement("div");
       optsContainer.className = "db-question-options";
-      optsContainer.innerHTML = `<strong>Left Items:</strong> ${q.leftItems.join(', ')}<br><strong>Right Items:</strong> ${q.rightItems.join(', ')}`;
+      optsContainer.innerHTML = `
+        <strong>Left Items:</strong> ${q.leftItems.map(item => highlightSearchTerms(item, query)).join(', ')}<br>
+        <strong>Right Items:</strong> ${q.rightItems.map(item => highlightSearchTerms(item, query)).join(', ')}
+      `;
       item.appendChild(optsContainer);
     } else if (q.type === "true-false-cluster" && q.statements) {
       const optsContainer = document.createElement("div");
       optsContainer.className = "db-question-options";
       q.statements.forEach(s => {
         const stmtDiv = document.createElement("div");
-        stmtDiv.textContent = `${s.id}) ${s.text}`;
+        stmtDiv.innerHTML = `${s.id}) ${highlightSearchTerms(s.text || s.statement, query)}`;
         optsContainer.appendChild(stmtDiv);
       });
       item.appendChild(optsContainer);
     }
 
-    // Solution Container (Hidden by default behind a toggle button)
+    // Solution Toggle & Content
     const solutionWrapper = document.createElement("div");
     solutionWrapper.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.35rem;";
 
@@ -2681,19 +2949,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const solutionContent = document.createElement("div");
     solutionContent.style.cssText = "display: none; flex-direction: column; gap: 0.4rem;";
 
-    // Answer
     if (q.correctAnswer || q.modelAnswer) {
       const ans = document.createElement("div");
       ans.className = "db-question-answer";
-      ans.innerHTML = `<strong>Correct Answer:</strong> ${q.correctAnswer || q.modelAnswer}`;
+      ans.innerHTML = `<strong>Correct Answer:</strong> ${highlightSearchTerms(q.correctAnswer || q.modelAnswer, query)}`;
       solutionContent.appendChild(ans);
     }
 
-    // Explanation
     if (q.explanation) {
       const exp = document.createElement("div");
       exp.className = "db-question-explanation";
-      exp.innerHTML = `<strong>Explanation:</strong> ${q.explanation}`;
+      exp.innerHTML = `<strong>Explanation:</strong> ${highlightSearchTerms(q.explanation, query)}`;
       solutionContent.appendChild(exp);
     }
 
@@ -2748,31 +3014,99 @@ document.addEventListener("DOMContentLoaded", () => {
     modal.addEventListener("click", modalOverlayHandler);
   }
 
+  function resetAllDbFilters() {
+    dbFilterState.query = "";
+    dbFilterState.module = "all";
+    dbFilterState.type = "all";
+    dbFilterState.bookmarkedOnly = false;
+
+    const input = document.getElementById("dbSearchInput");
+    if (input) input.value = "";
+
+    const modFilter = document.getElementById("dbModuleFilter");
+    if (modFilter) modFilter.value = "all";
+
+    const typeFilter = document.getElementById("dbTypeFilter");
+    if (typeFilter) typeFilter.value = "all";
+
+    const bBtn = document.getElementById("dbBookmarkFilterBtn");
+    if (bBtn) {
+      bBtn.classList.remove("active");
+      bBtn.setAttribute("aria-pressed", "false");
+    }
+
+    renderDatabaseUI();
+  }
+
   function renderDatabaseUI() {
     const container = document.getElementById("database-groups-container");
     if (!container) return;
 
     container.innerHTML = "";
 
-    if (state.questionsPool.length === 0) {
-      container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">Your master question pool is currently empty.</div>`;
+    const poolTotal = state.questionsPool.length;
+    const matchCountEl = document.getElementById("db-match-count");
+    const totalCountEl = document.getElementById("db-total-count");
+    const resetFiltersBtn = document.getElementById("dbResetFiltersBtn");
+    const searchClearBtn = document.getElementById("dbSearchClear");
+
+    if (totalCountEl) totalCountEl.textContent = poolTotal;
+
+    if (poolTotal === 0) {
+      if (matchCountEl) matchCountEl.textContent = 0;
+      container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">Your master question pool is currently empty. Please load the default mock or upload a file.</div>`;
       return;
     }
 
+    const isFilterActive = !!(
+      (dbFilterState.query && dbFilterState.query.trim()) ||
+      dbFilterState.module !== "all" ||
+      dbFilterState.type !== "all" ||
+      dbFilterState.bookmarkedOnly
+    );
+
+    if (resetFiltersBtn) {
+      resetFiltersBtn.style.display = isFilterActive ? "inline-flex" : "none";
+    }
+    if (searchClearBtn) {
+      searchClearBtn.style.display = (dbFilterState.query && dbFilterState.query.trim()) ? "inline-flex" : "none";
+    }
+
     const subjects = ["Cell Biology", "Histology", "Embryology", "Interdisciplinary"];
-    
+    let totalMatched = 0;
+
     subjects.forEach(subj => {
-      const questions = state.questionsPool.filter(q => (q.module || "").toLowerCase().includes(subj.toLowerCase()));
+      if (dbFilterState.module !== "all" && dbFilterState.module.toLowerCase() !== subj.toLowerCase()) {
+        return;
+      }
+
+      const allSubjectQuestions = state.questionsPool.filter(q => (q.module || "").toLowerCase().includes(subj.toLowerCase()));
+      const matchingSubjectQuestions = allSubjectQuestions.filter(q => matchQuestionAgainstFilter(q, dbFilterState));
+
+      totalMatched += matchingSubjectQuestions.length;
+
+      if (isFilterActive && matchingSubjectQuestions.length === 0) {
+        return;
+      }
 
       const card = document.createElement("div");
       card.className = "db-group-card";
+
+      if (isFilterActive && matchingSubjectQuestions.length > 0) {
+        card.classList.add("active");
+      }
 
       const header = document.createElement("div");
       header.className = "db-group-header";
 
       const titleSpan = document.createElement("span");
       titleSpan.className = "db-group-title";
-      titleSpan.innerHTML = `${subj} <span class="db-group-count">${questions.length}</span>`;
+
+      const countBadgeContent = isFilterActive
+        ? `${matchingSubjectQuestions.length} / ${allSubjectQuestions.length}`
+        : `${allSubjectQuestions.length}`;
+
+      titleSpan.innerHTML = `${subj} <span class="db-group-count">${countBadgeContent}</span>`;
 
       const arrowSpan = document.createElement("span");
       arrowSpan.className = "db-group-arrow";
@@ -2784,11 +3118,11 @@ document.addEventListener("DOMContentLoaded", () => {
       const body = document.createElement("div");
       body.className = "db-group-body";
 
-      if (questions.length === 0) {
-        body.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 0.5rem 0;">No questions available in this subject.</div>`;
+      if (matchingSubjectQuestions.length === 0) {
+        body.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 0.5rem 0;">No matching questions in this subject.</div>`;
       } else {
-        questions.forEach(q => {
-          body.appendChild(renderQuestionDetailHTML(q));
+        matchingSubjectQuestions.forEach(q => {
+          body.appendChild(renderQuestionDetailHTML(q, dbFilterState.query));
         });
       }
 
@@ -2800,7 +3134,699 @@ document.addEventListener("DOMContentLoaded", () => {
       card.appendChild(body);
       container.appendChild(card);
     });
+
+    if (matchCountEl) matchCountEl.textContent = totalMatched;
+
+    if (totalMatched === 0) {
+      const emptyState = document.createElement("div");
+      emptyState.className = "db-empty-state";
+      emptyState.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="40" height="40" style="color: var(--text-muted); margin-bottom: 0.75rem;">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          <line x1="8" y1="11" x2="14" y2="11"></line>
+        </svg>
+        <div style="font-weight: 600; font-size: 1rem; color: #fff; margin-bottom: 0.25rem;">No matching questions found</div>
+        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem; max-width: 320px;">
+          No questions in your pool match the current search query and filter criteria.
+        </div>
+        <button id="btn-db-clear-all-matches" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.4rem 0.9rem;">
+          Clear All Filters
+        </button>
+      `;
+
+      container.appendChild(emptyState);
+
+      const btnClearAll = emptyState.querySelector("#btn-db-clear-all-matches");
+      if (btnClearAll) {
+        btnClearAll.addEventListener("click", resetAllDbFilters);
+      }
+    }
   }
+
+  // Setup Database Toolbar Listeners
+  const dbSearchInput = document.getElementById("dbSearchInput");
+  const dbSearchClear = document.getElementById("dbSearchClear");
+  const dbModuleFilter = document.getElementById("dbModuleFilter");
+  const dbTypeFilter = document.getElementById("dbTypeFilter");
+  const dbBookmarkFilterBtn = document.getElementById("dbBookmarkFilterBtn");
+  const dbResetFiltersBtn = document.getElementById("dbResetFiltersBtn");
+
+  if (dbSearchInput) {
+    dbSearchInput.addEventListener("input", (e) => {
+      dbFilterState.query = e.target.value;
+      renderDatabaseUI();
+    });
+  }
+
+  if (dbSearchClear) {
+    dbSearchClear.addEventListener("click", () => {
+      dbFilterState.query = "";
+      if (dbSearchInput) {
+        dbSearchInput.value = "";
+        dbSearchInput.focus();
+      }
+      renderDatabaseUI();
+    });
+  }
+
+  if (dbModuleFilter) {
+    dbModuleFilter.addEventListener("change", (e) => {
+      dbFilterState.module = e.target.value;
+      renderDatabaseUI();
+    });
+  }
+
+  if (dbTypeFilter) {
+    dbTypeFilter.addEventListener("change", (e) => {
+      dbFilterState.type = e.target.value;
+      renderDatabaseUI();
+    });
+  }
+
+  if (dbBookmarkFilterBtn) {
+    dbBookmarkFilterBtn.addEventListener("click", () => {
+      dbFilterState.bookmarkedOnly = !dbFilterState.bookmarkedOnly;
+      dbBookmarkFilterBtn.classList.toggle("active", dbFilterState.bookmarkedOnly);
+      dbBookmarkFilterBtn.setAttribute("aria-pressed", dbFilterState.bookmarkedOnly ? "true" : "false");
+      renderDatabaseUI();
+    });
+  }
+
+  if (dbResetFiltersBtn) {
+    dbResetFiltersBtn.addEventListener("click", resetAllDbFilters);
+  }
+
+  // ==========================================
+  // RESULTS EVALUATION & PDF EXPORT (M3 / R3)
+  // ==========================================
+  function evaluateQuestionResult(q) {
+    const uAns = state.answers[q.id];
+    let isCorrect = false;
+    let userDisplay = "";
+    let correctDisplay = "";
+    let details = [];
+
+    if (q.type === "open") {
+      isCorrect = state.selfGradedScores[q.id] === 1;
+      userDisplay = uAns && uAns.trim() ? uAns.trim() : "[No written answer submitted]";
+      correctDisplay = q.modelAnswer || q.correctAnswer || "Model answer not provided.";
+    } else if (q.type === "multiple-choice") {
+      isCorrect = uAns === q.correctAnswer;
+      if (uAns) {
+        const matchOpt = Array.isArray(q.options) ? q.options.find(opt => opt.startsWith(uAns)) : null;
+        userDisplay = matchOpt || uAns;
+      } else {
+        userDisplay = "[No selection made]";
+      }
+      if (q.correctAnswer) {
+        const matchCorrect = Array.isArray(q.options) ? q.options.find(opt => opt.startsWith(q.correctAnswer)) : null;
+        correctDisplay = matchCorrect || q.correctAnswer;
+      } else {
+        correctDisplay = "[Unknown]";
+      }
+    } else if (q.type === "true-false" || q.type === "fill-in-the-gap") {
+      isCorrect = uAns === q.correctAnswer;
+      userDisplay = uAns || "[No selection made]";
+      correctDisplay = q.correctAnswer || "[Unknown]";
+    } else if (q.type === "matching") {
+      let allMatched = true;
+      if (!uAns) {
+        allMatched = false;
+      } else {
+        for (let key in q.correctAnswers) {
+          if (uAns[key] === undefined || uAns[key].toString() !== q.correctAnswers[key].toString()) {
+            allMatched = false;
+            break;
+          }
+        }
+      }
+      isCorrect = allMatched;
+
+      if (Array.isArray(q.leftItems) && Array.isArray(q.rightItems)) {
+        q.leftItems.forEach((leftItem, idx) => {
+          const userValIdx = uAns && uAns[idx];
+          const correctValIdx = q.correctAnswers ? q.correctAnswers[idx] : undefined;
+          const userValText = userValIdx !== undefined ? (q.rightItems[userValIdx] || `Item ${userValIdx}`) : "[No match]";
+          const correctValText = correctValIdx !== undefined ? (q.rightItems[correctValIdx] || `Item ${correctValIdx}`) : "[Unknown]";
+          const pairCorrect = userValIdx !== undefined && correctValIdx !== undefined && userValIdx.toString() === correctValIdx.toString();
+          details.push({
+            label: leftItem,
+            user: userValText,
+            correct: correctValText,
+            isCorrect: pairCorrect
+          });
+        });
+      }
+      userDisplay = isCorrect ? "All pairs correctly matched" : "One or more pairs mismatched";
+      correctDisplay = "Refer to sub-item pairings below";
+    } else if (q.type === "true-false-cluster") {
+      let allCorrect = true;
+      if (!uAns) {
+        allCorrect = false;
+      } else if (Array.isArray(q.statements)) {
+        q.statements.forEach(stmt => {
+          if (uAns[stmt.id] !== stmt.correctAnswer) {
+            allCorrect = false;
+          }
+        });
+      }
+      isCorrect = allCorrect;
+
+      if (Array.isArray(q.statements)) {
+        q.statements.forEach(stmt => {
+          const uVal = uAns && uAns[stmt.id];
+          const cVal = stmt.correctAnswer;
+          const stmtCorrect = uVal === cVal;
+          details.push({
+            label: `${stmt.id}) ${stmt.text || stmt.statement || ""}`,
+            user: uVal !== undefined ? String(uVal) : "[No answer]",
+            correct: cVal !== undefined ? String(cVal) : "[Unknown]",
+            isCorrect: stmtCorrect
+          });
+        });
+      }
+      userDisplay = isCorrect ? "All statements evaluated correctly" : "One or more statements incorrect";
+      correctDisplay = "Refer to statement breakdown below";
+    }
+
+    return {
+      id: q.id,
+      type: q.type,
+      module: q.module,
+      question: q.question,
+      isCorrect,
+      userDisplay,
+      correctDisplay,
+      details,
+      explanation: q.explanation || "",
+      isSelfGraded: q.type === "open",
+      points: isCorrect ? 1 : 0
+    };
+  }
+
+  function generateResultsPDFBlob() {
+    const totalQuestions = state.questions ? state.questions.length : 0;
+    if (totalQuestions === 0) {
+      throw new Error("No active exam questions available to generate PDF.");
+    }
+
+    const evaluatedQuestions = state.questions.map(q => evaluateQuestionResult(q));
+    const totalScore = evaluatedQuestions.filter(item => item.isCorrect).length;
+    const overallPercent = (totalScore / totalQuestions) * 100;
+    
+    // Module stats
+    const moduleScores = {
+      "Cell Biology": { score: 0, total: 0, reqPass: 0 },
+      "Histology": { score: 0, total: 0, reqPass: 0 },
+      "Embryology": { score: 0, total: 0, reqPass: 0 },
+      "Interdisciplinary": { score: 0, total: 0, reqPass: 0 }
+    };
+
+    evaluatedQuestions.forEach(item => {
+      if (moduleScores[item.module]) {
+        moduleScores[item.module].total++;
+        if (item.isCorrect) moduleScores[item.module].score++;
+      }
+    });
+
+    for (let key in moduleScores) {
+      moduleScores[key].reqPass = Math.ceil(moduleScores[key].total * 0.5);
+    }
+
+    const passOverall = overallPercent >= 60;
+    const passCellBio = moduleScores["Cell Biology"].total === 0 || (moduleScores["Cell Biology"].score / moduleScores["Cell Biology"].total) >= 0.5;
+    const passHistology = moduleScores["Histology"].total === 0 || (moduleScores["Histology"].score / moduleScores["Histology"].total) >= 0.5;
+    const passEmbryo = moduleScores["Embryology"].total === 0 || (moduleScores["Embryology"].score / moduleScores["Embryology"].total) >= 0.5;
+    const passInterdisciplinary = moduleScores["Interdisciplinary"].total === 0 || (moduleScores["Interdisciplinary"].score / moduleScores["Interdisciplinary"].total) >= 0.5;
+    const isPassed = passOverall && passCellBio && passHistology && passEmbryo && passInterdisciplinary;
+
+    let gradeStr = "";
+    if (totalScore === totalQuestions) {
+      gradeStr = "30L";
+    } else {
+      gradeStr = Math.round((totalScore / totalQuestions) * 30).toString();
+    }
+
+    const incorrectQuestions = evaluatedQuestions.filter(item => !item.isCorrect);
+
+    // PDF Drawing Setup
+    const pageWidth = 595.28;
+    const pageHeight = 841.89;
+    const marginLeft = 40;
+    const marginRight = 40;
+    const marginTop = 40;
+    const marginBottom = 45;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+
+    const pages = [];
+    let currentCommands = [];
+    let currentY = marginTop;
+
+    function sanitizeText(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/[\r\n\t]+/g, " ")
+        .replace(/[\u2018\u2019]/g, "'")
+        .replace(/[\u201C\u201D]/g, '"')
+        .replace(/[\u2013\u2014]/g, "-")
+        .replace(/[\u2022\u00B7]/g, "*")
+        .replace(/[\u2264]/g, "<=")
+        .replace(/[\u2265]/g, ">=")
+        .replace(/[\u2026]/g, "...")
+        .replace(/[^\x20-\x7E]/g, " ");
+    }
+
+    function escapePdfString(str) {
+      return sanitizeText(str)
+        .replace(/\\/g, "\\\\")
+        .replace(/\(/g, "\\(")
+        .replace(/\)/g, "\\)");
+    }
+
+    function getTextWidth(text, fontSize, isBold) {
+      let w = 0;
+      const factor = isBold ? 1.06 : 1.0;
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === ' ' || c === '.' || c === ',' || c === ':' || c === ';' || c === '!' || c === '|' || c === 'i' || c === 'l' || c === 'j' || c === 't' || c === 'I' || c === '1' || c === '(' || c === ')' || c === '[' || c === ']') {
+          w += 0.28 * fontSize * factor;
+        } else if (c === 'm' || c === 'w' || c === 'M' || c === 'W' || c === '@' || c === '%') {
+          w += 0.82 * fontSize * factor;
+        } else if (c >= 'A' && c <= 'Z') {
+          w += 0.65 * fontSize * factor;
+        } else {
+          w += 0.52 * fontSize * factor;
+        }
+      }
+      return w;
+    }
+
+    function wrapText(text, maxWidth, fontSize, isBold) {
+      const clean = sanitizeText(text);
+      if (!clean) return [];
+      const words = clean.split(/\s+/).filter(Boolean);
+      const lines = [];
+      let curLine = "";
+
+      for (let i = 0; i < words.length; i++) {
+        const word = words[i];
+        const testLine = curLine ? `${curLine} ${word}` : word;
+        const testWidth = getTextWidth(testLine, fontSize, isBold);
+
+        if (testWidth <= maxWidth) {
+          curLine = testLine;
+        } else {
+          if (curLine) lines.push(curLine);
+          if (getTextWidth(word, fontSize, isBold) > maxWidth) {
+            let part = "";
+            for (let c = 0; c < word.length; c++) {
+              if (getTextWidth(part + word[c], fontSize, isBold) <= maxWidth) {
+                part += word[c];
+              } else {
+                lines.push(part);
+                part = word[c];
+              }
+            }
+            curLine = part;
+          } else {
+            curLine = word;
+          }
+        }
+      }
+      if (curLine) lines.push(curLine);
+      return lines;
+    }
+
+    function toPdfY(topY) {
+      return pageHeight - topY;
+    }
+
+    function drawText(text, x, y, fontSize, isBold, colorRGB, isOblique) {
+      const escaped = escapePdfString(text);
+      if (!escaped) return;
+      const font = isBold ? "/F2" : (isOblique ? "/F3" : "/F1");
+      const rgb = colorRGB || [0.1, 0.1, 0.1];
+      const baselineY = toPdfY(y + fontSize * 0.82);
+      currentCommands.push(`BT\n${font} ${fontSize} Tf\n${rgb[0].toFixed(3)} ${rgb[1].toFixed(3)} ${rgb[2].toFixed(3)} rg\n1 0 0 1 ${x.toFixed(2)} ${baselineY.toFixed(2)} Tm\n(${escaped}) Tj\nET\n`);
+    }
+
+    function drawLine(x1, y1, x2, y2, strokeRGB, lineWidth) {
+      const pdfY1 = toPdfY(y1);
+      const pdfY2 = toPdfY(y2);
+      const rgb = strokeRGB || [0.5, 0.5, 0.5];
+      const lw = lineWidth || 1;
+      currentCommands.push(`${rgb[0].toFixed(3)} ${rgb[1].toFixed(3)} ${rgb[2].toFixed(3)} RG\n${lw} w\n${x1.toFixed(2)} ${pdfY1.toFixed(2)} m\n${x2.toFixed(2)} ${pdfY2.toFixed(2)} l\nS\n`);
+    }
+
+    function drawRect(x, y, w, h, fillRGB, strokeRGB, lineWidth) {
+      const pdfY = toPdfY(y + h);
+      let cmd = "";
+      if (fillRGB) {
+        cmd += `${fillRGB[0].toFixed(3)} ${fillRGB[1].toFixed(3)} ${fillRGB[2].toFixed(3)} rg\n`;
+      }
+      if (strokeRGB) {
+        cmd += `${strokeRGB[0].toFixed(3)} ${strokeRGB[1].toFixed(3)} ${strokeRGB[2].toFixed(3)} RG\n`;
+        cmd += `${lineWidth || 1} w\n`;
+      }
+      cmd += `${x.toFixed(2)} ${pdfY.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re\n`;
+      if (fillRGB && strokeRGB) {
+        cmd += `B\n`;
+      } else if (fillRGB) {
+        cmd += `f\n`;
+      } else if (strokeRGB) {
+        cmd += `S\n`;
+      }
+      currentCommands.push(cmd);
+    }
+
+    function startNewPage() {
+      if (currentCommands.length > 0) {
+        pages.push(currentCommands);
+      }
+      currentCommands = [];
+      currentY = marginTop;
+
+      if (pages.length >= 1) {
+        const headerText = "CBEH Exam Simulation - Study Summary & Error Review Sheet";
+        drawText(headerText, marginLeft, 24, 8, false, [0.45, 0.45, 0.45]);
+        drawLine(marginLeft, 34, marginLeft + contentWidth, 34, [0.82, 0.82, 0.82], 0.75);
+        currentY = 48;
+      }
+    }
+
+    function ensureSpace(neededHeight) {
+      if (currentY + neededHeight > pageHeight - marginBottom) {
+        startNewPage();
+      }
+    }
+
+    // --- RENDER CONTENT ---
+    startNewPage();
+
+    // 1. Header Banner
+    const bannerHeight = 72;
+    drawRect(marginLeft, currentY, contentWidth, bannerHeight, [0.07, 0.12, 0.22], null);
+    drawText("CBEH EXAM SIMULATOR", marginLeft + 14, currentY + 12, 16, true, [1, 1, 1]);
+    drawText("Official Syllabus Simulation & Comprehensive Study Review Sheet", marginLeft + 14, currentY + 32, 9, false, [0.65, 0.78, 0.95]);
+    
+    const examDateStr = new Date().toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+    drawText(`Date: ${examDateStr}  |  Mode: ${state.examMode || "Standard Simulation"}  |  Questions: ${totalQuestions}`, marginLeft + 14, currentY + 50, 8.5, false, [0.8, 0.85, 0.92]);
+    currentY += bannerHeight + 14;
+
+    // 2. Score Summary & Status Card
+    const scoreCardHeight = 62;
+    drawRect(marginLeft, currentY, contentWidth, scoreCardHeight, [0.97, 0.98, 1.0], [0.82, 0.86, 0.92], 1);
+
+    drawText("Overall Score", marginLeft + 14, currentY + 10, 8.5, false, [0.4, 0.45, 0.55]);
+    drawText(`${totalScore} / ${totalQuestions} (${overallPercent.toFixed(1)}%)`, marginLeft + 14, currentY + 24, 15, true, [0.08, 0.12, 0.22]);
+
+    const gradeColor = isPassed ? [0.06, 0.65, 0.35] : [0.88, 0.2, 0.2];
+    drawText("Italian Grade", marginLeft + 180, currentY + 10, 8.5, false, [0.4, 0.45, 0.55]);
+    drawText(`Grade: ${gradeStr} / 30`, marginLeft + 180, currentY + 24, 15, true, gradeColor);
+
+    const badgeW = 100;
+    const badgeH = 28;
+    const badgeX = marginLeft + contentWidth - badgeW - 14;
+    const badgeY = currentY + 17;
+    const badgeBg = isPassed ? [0.06, 0.68, 0.38] : [0.9, 0.22, 0.22];
+    drawRect(badgeX, badgeY, badgeW, badgeH, badgeBg, null);
+    const badgeLabel = isPassed ? "PASSED" : "FAILED";
+    const badgeTextW = getTextWidth(badgeLabel, 11, true);
+    drawText(badgeLabel, badgeX + (badgeW - badgeTextW) / 2, badgeY + 7, 11, true, [1, 1, 1]);
+
+    currentY += scoreCardHeight + 18;
+
+    // 3. Module Breakdown Table
+    drawText("MODULE PERFORMANCE BREAKDOWN", marginLeft, currentY, 11, true, [0.1, 0.15, 0.25]);
+    currentY += 16;
+
+    const colWidths = [160, 80, 90, 95, 90.28];
+    const tableHeaderH = 20;
+
+    drawRect(marginLeft, currentY, contentWidth, tableHeaderH, [0.12, 0.18, 0.28], null);
+    let colX = marginLeft;
+    const colTitles = ["Module Name", "Score", "Req. Pass (50%)", "Percentage", "Status"];
+    colTitles.forEach((t, i) => {
+      drawText(t, colX + 8, currentY + 5, 8.5, true, [1, 1, 1]);
+      colX += colWidths[i];
+    });
+    currentY += tableHeaderH;
+
+    const moduleRows = [
+      { name: "Cell Biology", stats: moduleScores["Cell Biology"] },
+      { name: "Histology", stats: moduleScores["Histology"] },
+      { name: "Embryology", stats: moduleScores["Embryology"] },
+      { name: "Interdisciplinary", stats: moduleScores["Interdisciplinary"] }
+    ];
+
+    const rowH = 20;
+    moduleRows.forEach((row, rIdx) => {
+      const isEven = rIdx % 2 === 0;
+      const bg = isEven ? [0.98, 0.98, 0.99] : [0.94, 0.95, 0.97];
+      drawRect(marginLeft, currentY, contentWidth, rowH, bg, [0.88, 0.9, 0.92], 0.5);
+
+      const st = row.stats;
+      const pct = st.total > 0 ? (st.score / st.total) * 100 : 0;
+      const isMet = st.total === 0 || st.score >= st.reqPass;
+
+      colX = marginLeft;
+      drawText(row.name, colX + 8, currentY + 5, 8.5, true, [0.12, 0.15, 0.2]);
+      colX += colWidths[0];
+      drawText(`${st.score} / ${st.total}`, colX + 8, currentY + 5, 8.5, false, [0.2, 0.2, 0.2]);
+      colX += colWidths[1];
+      drawText(`${st.reqPass} / ${st.total}`, colX + 8, currentY + 5, 8.5, false, [0.4, 0.4, 0.4]);
+      colX += colWidths[2];
+      drawText(`${pct.toFixed(1)}%`, colX + 8, currentY + 5, 8.5, false, [0.2, 0.2, 0.2]);
+      colX += colWidths[3];
+      
+      const statusColor = isMet ? [0.06, 0.65, 0.35] : [0.88, 0.2, 0.2];
+      drawText(isMet ? "MET" : "NOT MET", colX + 8, currentY + 5, 8.5, true, statusColor);
+
+      currentY += rowH;
+    });
+
+    // Total Row
+    drawRect(marginLeft, currentY, contentWidth, rowH, [0.9, 0.92, 0.96], [0.75, 0.8, 0.88], 0.75);
+    colX = marginLeft;
+    drawText("Total Overall", colX + 8, currentY + 5, 9, true, [0.08, 0.12, 0.22]);
+    colX += colWidths[0];
+    drawText(`${totalScore} / ${totalQuestions}`, colX + 8, currentY + 5, 9, true, [0.08, 0.12, 0.22]);
+    colX += colWidths[1];
+    drawText(`>= 60% Overall`, colX + 8, currentY + 5, 8.5, false, [0.35, 0.4, 0.45]);
+    colX += colWidths[2];
+    drawText(`${overallPercent.toFixed(1)}%`, colX + 8, currentY + 5, 9, true, [0.08, 0.12, 0.22]);
+    colX += colWidths[3];
+    drawText(isPassed ? "PASSED" : "FAILED", colX + 8, currentY + 5, 9, true, gradeColor);
+    currentY += rowH + 22;
+
+    // 4. Error Review Sheet
+    ensureSpace(60);
+    drawText("INCORRECT QUESTIONS ERROR REVIEW SHEET", marginLeft, currentY, 11, true, [0.1, 0.15, 0.25]);
+    drawText(
+      incorrectQuestions.length === 0
+        ? "All questions answered correctly."
+        : `Showing all ${incorrectQuestions.length} incorrectly answered question(s) with explanations and model solutions.`,
+      marginLeft,
+      currentY + 14,
+      8.5,
+      false,
+      [0.45, 0.5, 0.58]
+    );
+    currentY += 28;
+
+    if (incorrectQuestions.length === 0) {
+      const perfectH = 45;
+      drawRect(marginLeft, currentY, contentWidth, perfectH, [0.93, 0.98, 0.94], [0.5, 0.82, 0.6], 1);
+      drawText("Congratulations! Perfect Score (0 Errors)", marginLeft + 14, currentY + 12, 10, true, [0.05, 0.55, 0.25]);
+      drawText("You answered all questions in this simulation correctly without any errors.", marginLeft + 14, currentY + 28, 8.5, false, [0.1, 0.45, 0.2]);
+      currentY += perfectH + 15;
+    } else {
+      incorrectQuestions.forEach((item) => {
+        const promptLines = wrapText(item.question, contentWidth - 24, 8.5, false);
+        const promptH = promptLines.length * 12;
+
+        const userAnsLines = wrapText(`Your Answer: ${item.userDisplay}`, contentWidth - 36, 8, false);
+        const userAnsH = userAnsLines.length * 11 + 8;
+
+        const correctAnsLines = wrapText(`Correct Answer: ${item.correctDisplay}`, contentWidth - 36, 8, false);
+        const correctAnsH = correctAnsLines.length * 11 + 8;
+
+        const detailsH = item.details ? item.details.length * 14 : 0;
+
+        const expLines = item.explanation ? wrapText(`Explanation: ${item.explanation}`, contentWidth - 36, 8, false) : [];
+        const expH = expLines.length > 0 ? expLines.length * 11 + 10 : 0;
+
+        const totalCardH = 24 + promptH + 8 + userAnsH + 6 + correctAnsH + (detailsH > 0 ? detailsH + 8 : 0) + (expH > 0 ? expH + 8 : 0) + 12;
+
+        ensureSpace(Math.min(totalCardH, 300));
+
+        const cardTopY = currentY;
+        drawRect(marginLeft, cardTopY, contentWidth, totalCardH, [0.99, 0.99, 1.0], [0.85, 0.87, 0.92], 1);
+
+        const cardHeaderTitle = `Question ${item.id} - ${item.module} [${(item.type || "").toUpperCase()}]`;
+        drawText(cardHeaderTitle, marginLeft + 12, currentY + 8, 9, true, [0.15, 0.2, 0.3]);
+        currentY += 22;
+
+        promptLines.forEach((l, li) => {
+          drawText(l, marginLeft + 12, currentY + li * 12, 8.5, false, [0.1, 0.1, 0.1]);
+        });
+        currentY += promptH + 6;
+
+        drawRect(marginLeft + 12, currentY, contentWidth - 24, userAnsH, [0.99, 0.94, 0.94], [0.95, 0.75, 0.75], 0.75);
+        userAnsLines.forEach((l, li) => {
+          drawText(l, marginLeft + 18, currentY + 5 + li * 11, 8, li === 0, [0.75, 0.15, 0.15]);
+        });
+        currentY += userAnsH + 5;
+
+        drawRect(marginLeft + 12, currentY, contentWidth - 24, correctAnsH, [0.93, 0.98, 0.94], [0.6, 0.85, 0.68], 0.75);
+        correctAnsLines.forEach((l, li) => {
+          drawText(l, marginLeft + 18, currentY + 5 + li * 11, 8, li === 0, [0.06, 0.52, 0.22]);
+        });
+        currentY += correctAnsH + 5;
+
+        if (item.details && item.details.length > 0) {
+          item.details.forEach(d => {
+            const isPairOk = d.isCorrect;
+            const marker = isPairOk ? "[CORRECT]" : "[INCORRECT]";
+            const markColor = isPairOk ? [0.06, 0.55, 0.25] : [0.8, 0.15, 0.15];
+            const dText = `${marker} ${d.label} -> Your Choice: ${d.user} (Correct: ${d.correct})`;
+            const dLines = wrapText(dText, contentWidth - 36, 7.5, false);
+            dLines.forEach(dl => {
+              drawText(dl, marginLeft + 18, currentY, 7.5, false, markColor);
+              currentY += 11;
+            });
+          });
+          currentY += 4;
+        }
+
+        if (expH > 0) {
+          drawRect(marginLeft + 12, currentY, contentWidth - 24, expH, [0.95, 0.97, 1.0], [0.8, 0.86, 0.94], 0.75);
+          expLines.forEach((l, li) => {
+            drawText(l, marginLeft + 18, currentY + 5 + li * 11, 8, false, [0.25, 0.32, 0.42], li === 0);
+          });
+          currentY += expH + 6;
+        }
+
+        currentY = cardTopY + totalCardH + 12;
+      });
+    }
+
+    if (currentCommands.length > 0) {
+      pages.push(currentCommands);
+    }
+
+    const totalPagesCount = pages.length;
+
+    // Second Pass: Inject running footers ("Page X of Y")
+    pages.forEach((pageCmds, pIdx) => {
+      const pageNumText = `Page ${pIdx + 1} of ${totalPagesCount}`;
+      const footerY = 816;
+      const leftFooter = `CBEH Exam Simulator - Study Summary & Error Review  |  ${examDateStr}`;
+      
+      const pdfY1 = toPdfY(808);
+      pageCmds.push(`0.82 0.82 0.82 RG\n0.75 w\n${marginLeft.toFixed(2)} ${pdfY1.toFixed(2)} m\n${(marginLeft + contentWidth).toFixed(2)} ${pdfY1.toFixed(2)} l\nS\n`);
+      
+      const baselineY = toPdfY(footerY + 8 * 0.82);
+      pageCmds.push(`BT\n/F1 8 Tf\n0.5 0.5 0.5 rg\n1 0 0 1 ${marginLeft.toFixed(2)} ${baselineY.toFixed(2)} Tm\n(${escapePdfString(leftFooter)}) Tj\nET\n`);
+      
+      const pageNumW = getTextWidth(pageNumText, 8, false);
+      const pageNumX = marginLeft + contentWidth - pageNumW;
+      pageCmds.push(`BT\n/F2 8 Tf\n0.4 0.4 0.4 rg\n1 0 0 1 ${pageNumX.toFixed(2)} ${baselineY.toFixed(2)} Tm\n(${escapePdfString(pageNumText)}) Tj\nET\n`);
+    });
+
+    // Compile PDF Objects
+    const objects = [];
+    objects.push({ id: 1, content: `<< /Type /Catalog /Pages 2 0 R >>` });
+
+    const pageObjIds = [];
+    let nextObjId = 6;
+    for (let i = 0; i < totalPagesCount; i++) {
+      pageObjIds.push(nextObjId);
+      nextObjId += 2;
+    }
+
+    objects.push({
+      id: 2,
+      content: `<< /Type /Pages /Kids [${pageObjIds.map(id => `${id} 0 R`).join(" ")}] /Count ${totalPagesCount} >>`
+    });
+
+    objects.push({ id: 3, content: `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>` });
+    objects.push({ id: 4, content: `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>` });
+    objects.push({ id: 5, content: `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>` });
+
+    pages.forEach((pageCmds, pIdx) => {
+      const pId = pageObjIds[pIdx];
+      const streamId = pId + 1;
+      const streamData = pageCmds.join("\n");
+      const streamLength = typeof Buffer !== "undefined" ? Buffer.byteLength(streamData, "utf-8") : streamData.length;
+
+      objects.push({
+        id: pId,
+        content: `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth.toFixed(2)} ${pageHeight.toFixed(2)}] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${streamId} 0 R >>`
+      });
+
+      objects.push({
+        id: streamId,
+        content: `<< /Length ${streamLength} >>\nstream\n${streamData}\nendstream`
+      });
+    });
+
+    objects.sort((a, b) => a.id - b.id);
+
+    let pdfOutput = `%PDF-1.4\n%\xE2\xE3\xCF\xD3\n`;
+    const offsets = [0];
+
+    objects.forEach(obj => {
+      const offset = typeof Buffer !== "undefined" ? Buffer.byteLength(pdfOutput, "utf-8") : pdfOutput.length;
+      offsets.push(offset);
+      pdfOutput += `${obj.id} 0 obj\n${obj.content}\nendobj\n`;
+    });
+
+    const xrefOffset = typeof Buffer !== "undefined" ? Buffer.byteLength(pdfOutput, "utf-8") : pdfOutput.length;
+    pdfOutput += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \r\n`;
+
+    for (let i = 1; i <= objects.length; i++) {
+      const offStr = String(offsets[i]).padStart(10, "0");
+      pdfOutput += `${offStr} 00000 n \r\n`;
+    }
+
+    pdfOutput += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`;
+
+    return new Blob([pdfOutput], { type: "application/pdf" });
+  }
+
+  function generateAndDownloadResultsPDF() {
+    try {
+      const blob = generateResultsPDFBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `CBEH_Exam_Results_${dateStr}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (err) {
+      console.error("Failed to generate and download PDF:", err);
+    }
+  }
+
+  const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+  if (downloadPdfBtn) {
+    downloadPdfBtn.addEventListener("click", generateAndDownloadResultsPDF);
+  }
+
+  // Expose global methods for testing & debugging
+  window.generateAndDownloadResultsPDF = generateAndDownloadResultsPDF;
+  window.generateResultsPDFBlob = generateResultsPDFBlob;
+  window.evaluateQuestionResult = evaluateQuestionResult;
+  window.matchQuestionAgainstFilter = matchQuestionAgainstFilter;
+  window.dbFilterState = dbFilterState;
+  window.resetAllDbFilters = resetAllDbFilters;
 
   // Invoke state loading and manager UI render on startup
   loadAppState();
