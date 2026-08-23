@@ -351,7 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
       state.questionsPool.push(...defaultQs);
       
       updateUploadedSimulationsCount();
-      saveAppState();
+      saveQuestionsPool();
       updateSimulationsManagerUI();
       
       poolStatusCount.textContent = state.questionsPool.length;
@@ -374,7 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Save and update UI
         updateUploadedSimulationsCount();
-        saveAppState();
+        saveQuestionsPool();
         updateSimulationsManagerUI();
         
         poolStatusCount.textContent = state.questionsPool.length;
@@ -445,7 +445,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const currentQuestion = state.questions[state.currentQuestionIndex];
     state.flags[currentQuestion.id] = e.target.checked;
     updateNavigationGrid();
-    saveAppState();
+    saveActiveExamState();
   });
 
   // BOOKMARK EVENT
@@ -612,7 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.timerInterval = setInterval(() => {
       state.timeLeft--;
       updateTimerDisplay();
-      saveAppState(); // save timer updates on each tick
+      saveActiveExamState(); // save timer updates on each tick
       
       if (state.timeLeft <= 0) {
         clearInterval(state.timerInterval);
@@ -1163,7 +1163,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // True/False Cluster answers are saved directly in their click event handlers
     
     updateNavigationGrid();
-    saveAppState();
+    saveActiveExamState();
   }
 
   // SUBMIT & GRADING PROCESS
@@ -1450,7 +1450,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateAnalyticsUI();
     }
     
-    saveAppState();
+    saveActiveExamState();
   }
 
   function updateModuleResultsUI(moduleScores) {
@@ -1640,7 +1640,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.isExamSubmitted = false;
     
     switchScreen("screen-welcome");
-    saveAppState();
+    localStorage.removeItem("cbeh_active_exam_state_v1");
   }
 
   // ==========================================
@@ -2163,7 +2163,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         // Recalculate uploadedSimulationsCount and save
         updateUploadedSimulationsCount();
-        saveAppState();
+        saveQuestionsPool();
         updateSimulationsManagerUI();
         
         addLogEntry(`Successfully parsed "${file.name}": added ${parsedQuestions.length} questions.`);
@@ -2263,7 +2263,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
           updateUploadedSimulationsCount();
-          saveAppState();
+          saveQuestionsPool();
           updateSimulationsManagerUI();
           
           // Update stats UI
@@ -2280,10 +2280,16 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // --- PERSISTENCE: STATE STORAGE AND RETRIEVAL ---
-  function saveAppState() {
-    const stateToSave = {
+  function saveQuestionsPool() {
+    const poolState = {
       questionsPool: state.questionsPool,
-      uploadedSimulationsCount: state.uploadedSimulationsCount,
+      uploadedSimulationsCount: state.uploadedSimulationsCount
+    };
+    localStorage.setItem("cbeh_questions_pool_v1", JSON.stringify(poolState));
+  }
+
+  function saveActiveExamState() {
+    const examState = {
       questions: state.questions,
       currentQuestionIndex: state.currentQuestionIndex,
       answers: state.answers,
@@ -2294,23 +2300,67 @@ document.addEventListener("DOMContentLoaded", () => {
       examMode: state.examMode,
       activeScreen: document.querySelector(".screen.active")?.id || "screen-welcome"
     };
-    localStorage.setItem("cbeh_app_state_v1", JSON.stringify(stateToSave));
+    localStorage.setItem("cbeh_active_exam_state_v1", JSON.stringify(examState));
   }
 
   function loadAppState() {
-    const saved = localStorage.getItem("cbeh_app_state_v1");
-    if (!saved) return false;
+    const savedPool = localStorage.getItem("cbeh_questions_pool_v1");
+    const savedExam = localStorage.getItem("cbeh_active_exam_state_v1");
+    const oldSaved = localStorage.getItem("cbeh_app_state_v1");
     
     try {
-      const parsed = JSON.parse(saved);
-      
-      // Restore master pool
-      if (parsed.questionsPool) {
-        state.questionsPool = parsed.questionsPool;
-        state.questionsPool.forEach(cleanQuestionText);
-      }
-      if (parsed.uploadedSimulationsCount) {
-        state.uploadedSimulationsCount = parsed.uploadedSimulationsCount;
+      if (oldSaved) {
+        const parsed = JSON.parse(oldSaved);
+        if (parsed.questionsPool) {
+          state.questionsPool = parsed.questionsPool;
+          state.questionsPool.forEach(cleanQuestionText);
+        }
+        if (parsed.uploadedSimulationsCount) {
+          state.uploadedSimulationsCount = parsed.uploadedSimulationsCount;
+        }
+        if (parsed.questions && parsed.questions.length > 0) {
+          state.questions = parsed.questions;
+          state.questions.forEach(cleanQuestionText);
+          state.currentQuestionIndex = parsed.currentQuestionIndex || 0;
+          state.answers = parsed.answers || {};
+          state.flags = parsed.flags || {};
+          state.timeLeft = parsed.timeLeft || 90 * 60;
+          state.selfGradedScores = parsed.selfGradedScores || {};
+          state.isExamSubmitted = !!parsed.isExamSubmitted;
+          state.examMode = parsed.examMode || "Full Simulation";
+        }
+        // Migrate to separate keys
+        saveQuestionsPool();
+        if (state.questions && state.questions.length > 0) {
+          saveActiveExamState();
+        }
+        localStorage.removeItem("cbeh_app_state_v1");
+      } else {
+        if (savedPool) {
+          const parsedPool = JSON.parse(savedPool);
+          if (parsedPool.questionsPool) {
+            state.questionsPool = parsedPool.questionsPool;
+            state.questionsPool.forEach(cleanQuestionText);
+          }
+          if (parsedPool.uploadedSimulationsCount) {
+            state.uploadedSimulationsCount = parsedPool.uploadedSimulationsCount;
+          }
+        }
+        
+        if (savedExam) {
+          const parsedExam = JSON.parse(savedExam);
+          if (parsedExam.questions && parsedExam.questions.length > 0) {
+            state.questions = parsedExam.questions;
+            state.questions.forEach(cleanQuestionText);
+            state.currentQuestionIndex = parsedExam.currentQuestionIndex || 0;
+            state.answers = parsedExam.answers || {};
+            state.flags = parsedExam.flags || {};
+            state.timeLeft = parsedExam.timeLeft || 90 * 60;
+            state.selfGradedScores = parsedExam.selfGradedScores || {};
+            state.isExamSubmitted = !!parsedExam.isExamSubmitted;
+            state.examMode = parsedExam.examMode || "Full Simulation";
+          }
+        }
       }
       
       // Update welcome screen stats
@@ -2318,17 +2368,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (poolStatusSims) poolStatusSims.textContent = state.uploadedSimulationsCount;
       
       // If there is an active/submitted exam, restore it
-      if (parsed.questions && parsed.questions.length > 0) {
-        state.questions = parsed.questions;
-        state.questions.forEach(cleanQuestionText);
-        state.currentQuestionIndex = parsed.currentQuestionIndex || 0;
-        state.answers = parsed.answers || {};
-        state.flags = parsed.flags || {};
-        state.timeLeft = parsed.timeLeft || 90 * 60;
-        state.selfGradedScores = parsed.selfGradedScores || {};
-        state.isExamSubmitted = !!parsed.isExamSubmitted;
-        state.examMode = parsed.examMode || "Full Simulation";
-        
+      if (state.questions && state.questions.length > 0) {
         // Build navigation UI
         buildGridNavigator();
         
@@ -2347,11 +2387,11 @@ document.addEventListener("DOMContentLoaded", () => {
           state.timerInterval = setInterval(() => {
             state.timeLeft--;
             updateTimerDisplay();
-            saveAppState(); // save remaining time on each tick!
+            saveActiveExamState(); // fast save, no pool!
             
             if (state.timeLeft <= 0) {
               clearInterval(state.timerInterval);
-              alert("Time is up! Submitting your exam.");
+              customAlert("Time is up! Submitting your exam.");
               submitExam();
             }
           }, 1000);
@@ -2360,7 +2400,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     } catch (e) {
       console.error("Error loading app state:", e);
-      localStorage.removeItem("cbeh_app_state_v1");
+      localStorage.removeItem("cbeh_questions_pool_v1");
+      localStorage.removeItem("cbeh_active_exam_state_v1");
     }
     return false;
   }
