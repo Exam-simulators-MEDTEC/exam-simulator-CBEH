@@ -2040,9 +2040,29 @@ document.addEventListener("DOMContentLoaded", () => {
     return text;
   }
 
-  // Sanitize misclassified True/False Clusters and option prefixes
+  // Sanitize misclassified True/False Clusters, option prefixes, and embedded headers
   function sanitizeQuestion(q) {
     if (!q) return;
+
+    // 0. Clean separator lines and spilled module header titles from question prompt
+    if (typeof q.question === "string") {
+      const upperQ = q.question.toUpperCase();
+      if (upperQ.includes("INTERDISCIPLINARY") || upperQ.includes("MODULE 4:")) {
+        q.module = "Interdisciplinary";
+      } else if (upperQ.includes("EMBRYOLOGY") || upperQ.includes("MODULE 3:")) {
+        q.module = "Embryology";
+      } else if (upperQ.includes("HISTOLOGY") || upperQ.includes("MODULE 2:")) {
+        q.module = "Histology";
+      }
+
+      // Strip section divider lines and header blocks from question prompt
+      q.question = q.question.replace(/={3,}/g, "");
+      q.question = q.question.replace(/-{3,}/g, "");
+      q.question = q.question.replace(/_{3,}/g, "");
+      q.question = q.question.replace(/MODULE\s+\d+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
+      q.question = q.question.replace(/PART\s+[I|V|X]+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
+      q.question = q.question.replace(/\s+/g, " ").trim();
+    }
 
     // 1. Convert misclassified True/False Cluster questions
     if (Array.isArray(q.options) && q.options.length > 0) {
@@ -2084,7 +2104,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Parse Mock Exam Text based on visual layout
   function parseMockExamText(text) {
-    const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const rawLines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    // Filter out separator lines composed purely of =, -, _, *
+    const lines = rawLines.filter(l => !/^[=\-\_\*]{3,}$/.test(l));
     
     // Find ANSWER KEY index
     let answerKeyStartIndex = -1;
@@ -2112,56 +2134,63 @@ document.addEventListener("DOMContentLoaded", () => {
       const upperLine = line.toUpperCase();
       
       // Module sections transitions (flexible matching for Part numbers, Section headers, and Module titles)
-      if (upperLine.includes("CELL BIOLOGY") || upperLine.includes("PART I:") || upperLine.includes("PART 1:") || upperLine.includes("SECTION I") || upperLine.includes("SECTION 1")) {
+      if (upperLine.includes("CELL BIOLOGY") || upperLine.includes("MODULE 1:") || upperLine.includes("PART I:") || upperLine.includes("PART 1:") || upperLine.includes("SECTION I") || upperLine.includes("SECTION 1")) {
         currentModule = "Cell Biology";
         continue;
-      } else if (upperLine.includes("HISTOLOGY") || upperLine.includes("PART II:") || upperLine.includes("PART 2:") || upperLine.includes("SECTION II") || upperLine.includes("SECTION 2")) {
+      } else if (upperLine.includes("HISTOLOGY") || upperLine.includes("MODULE 2:") || upperLine.includes("PART II:") || upperLine.includes("PART 2:") || upperLine.includes("SECTION II") || upperLine.includes("SECTION 2")) {
         currentModule = "Histology";
         continue;
-      } else if (upperLine.includes("EMBRYOLOGY") || upperLine.includes("PART III:") || upperLine.includes("PART 3:") || upperLine.includes("SECTION III") || upperLine.includes("SECTION 3")) {
+      } else if (upperLine.includes("EMBRYOLOGY") || upperLine.includes("MODULE 3:") || upperLine.includes("PART III:") || upperLine.includes("PART 3:") || upperLine.includes("SECTION III") || upperLine.includes("SECTION 3")) {
         currentModule = "Embryology";
         continue;
-      } else if (upperLine.includes("INTERDISCIPLINARY") || upperLine.includes("PART IV:") || upperLine.includes("PART 4:") || upperLine.includes("SECTION IV") || upperLine.includes("SECTION 4")) {
+      } else if (upperLine.includes("INTERDISCIPLINARY") || upperLine.includes("MODULE 4:") || upperLine.includes("PART IV:") || upperLine.includes("PART 4:") || upperLine.includes("SECTION IV") || upperLine.includes("SECTION 4")) {
         currentModule = "Interdisciplinary";
         continue;
       }
       
-      // Detect question start: "ID. TYPE:" (supports optional markdown headers, list bullet prefixes, parentheses and extra labels)
-      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)\.\s*\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?:?\s*(.*)/i);
+      // Detect question start: "ID. TYPE:" or "ID. Prompt"
+      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
       
-      if (qMatch) {
-        if (currentQuestion) {
-          parsedQuestions.push(currentQuestion);
-        }
-        
+      if (qMatch && qMatch[1]) {
         const id = parseInt(qMatch[1], 10);
-        const typeStr = qMatch[2].toLowerCase();
-        let type = "open";
-        if (typeStr.includes("multiple choice")) type = "multiple-choice";
-        else if (typeStr.includes("true or false cluster")) type = "true-false-cluster";
-        else if (typeStr.includes("true or false")) type = "true-false";
-        else if (typeStr.includes("fill in the gap")) type = "fill-in-the-gap";
-        else if (typeStr.includes("matching")) type = "matching";
+        const typeStr = (qMatch[2] || "").toLowerCase();
+        const promptText = qMatch[3] || "";
         
-        currentQuestion = {
-          id: id,
-          type: type,
-          module: currentModule,
-          question: qMatch[3],
-          options: [],
-          leftItems: [],
-          rightItems: [],
-          statements: [],
-          correctAnswer: null,
-          correctAnswers: null,
-          modelAnswer: null,
-          explanation: ""
-        };
-        
-        if (type === "true-false") {
-          currentQuestion.options = ["True", "False"];
+        // Only start a new question if type is specified OR if prompt starts with standard question prefixes
+        const isNewQ = qMatch[2] || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || id === (currentQuestion.id + 1);
+
+        if (isNewQ) {
+          if (currentQuestion) {
+            parsedQuestions.push(currentQuestion);
+          }
+          
+          let type = "multiple-choice";
+          if (typeStr.includes("matching") || /^match\b/i.test(promptText)) type = "matching";
+          else if (typeStr.includes("true or false cluster") || /^(evaluate|assess)\s+the\s+following/i.test(promptText)) type = "true-false-cluster";
+          else if (typeStr.includes("true or false")) type = "true-false";
+          else if (typeStr.includes("fill in the gap") || /^fill\s+in/i.test(promptText)) type = "fill-in-the-gap";
+          else if (typeStr.includes("open question") || /^(explain|describe)\b/i.test(promptText)) type = "open";
+          
+          currentQuestion = {
+            id: id,
+            type: type,
+            module: currentModule,
+            question: promptText,
+            options: [],
+            leftItems: [],
+            rightItems: [],
+            statements: [],
+            correctAnswer: null,
+            correctAnswers: null,
+            modelAnswer: null,
+            explanation: ""
+          };
+          
+          if (type === "true-false") {
+            currentQuestion.options = ["True", "False"];
+          }
+          continue;
         }
-        
       } else if (currentQuestion) {
         // Appending details to active question
         if (currentQuestion.type === "multiple-choice" || currentQuestion.type === "true-false" || currentQuestion.type === "fill-in-the-gap") {
