@@ -27,21 +27,7 @@
   --glass-blur: blur(16px);
 }
 
-/* --- LIGHT THEME OVERRIDES --- */
-body.light-theme {
-  --bg-main: #f1f5f9; /* Soft slate white */
-  --bg-card: rgba(255, 255, 255, 0.75);
-  --bg-card-hover: rgba(255, 255, 255, 0.96);
-  --border-color: rgba(148, 163, 184, 0.25);
-  
-  --text-main: #1e293b;
-  --text-muted: #64748b;
-  --border-focus: #4f46e5;
-  --color-primary: #4f46e5; /* Clear medical indigo */
-  --color-primary-hover: #3730a3;
-  
-  --glass-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.1);
-}
+
 
 /* --- COLOR PALETTE OVERRIDES --- */
 
@@ -57,17 +43,7 @@ body[data-palette="green"] {
   --color-primary-hover: #00b366;
   --color-unanswered: #1e2922;
 }
-body.light-theme[data-palette="green"] {
-  --bg-main: #f2faf6;
-  --bg-card: rgba(255, 255, 255, 0.8);
-  --bg-card-hover: rgba(255, 255, 255, 0.97);
-  --border-color: rgba(0, 170, 91, 0.18);
-  --text-main: #0c2217;
-  --text-muted: #4a6c5c;
-  --border-focus: #00aa5b;
-  --color-primary: #00aa5b;
-  --color-primary-hover: #008f4c;
-}
+
 
 /* 2. Amber Palette (Warm Bronze/Amber) */
 body[data-palette="amber"] {
@@ -81,17 +57,7 @@ body[data-palette="amber"] {
   --color-primary-hover: #d97706;
   --color-unanswered: #2e2314;
 }
-body.light-theme[data-palette="amber"] {
-  --bg-main: #faf7f2;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-hover: rgba(255, 255, 255, 0.97);
-  --border-color: rgba(217, 119, 6, 0.18);
-  --text-main: #24160c;
-  --text-muted: #6e5545;
-  --border-focus: #d97706;
-  --color-primary: #d97706;
-  --color-primary-hover: #b45309;
-}
+
 
 /* 3. Rose Palette (Elegant Rose/Burgundy) */
 body[data-palette="rose"] {
@@ -105,17 +71,7 @@ body[data-palette="rose"] {
   --color-primary-hover: #e11d48;
   --color-unanswered: #291e22;
 }
-body.light-theme[data-palette="rose"] {
-  --bg-main: #faf2f5;
-  --bg-card: rgba(255, 255, 255, 0.85);
-  --bg-card-hover: rgba(255, 255, 255, 0.97);
-  --border-color: rgba(225, 29, 72, 0.18);
-  --text-main: #220c14;
-  --text-muted: #6c4a55;
-  --border-focus: #e11d48;
-  --color-primary: #e11d48;
-  --color-primary-hover: #be123c;
-}
+
 
 /* 4. Slate Palette (Minimalist Slate/Monochrome) */
 body[data-palette="slate"] {
@@ -129,129 +85,9 @@ body[data-palette="slate"] {
   --color-primary-hover: #64748b;
   --color-unanswered: #1e293b;
 }
-body.light-theme[data-palette="slate"] {
-  --bg-main: #f8fafc;
-  --bg-card: rgba(255, 255, 255, 0.8);
-  --bg-card-hover: rgba(255, 255, 255, 0.97);
-  --border-color: rgba(100, 116, 139, 0.18);
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --border-focus: #64748b;
-  --color-primary: #64748b;
-  --color-primary-hover: #475569;
-}
-
-/* Specific elements adjustments in light theme */
-body.light-theme .welcome-card h1 {
-  background: none !important;
-  -webkit-background-clip: initial !important;
-  -webkit-text-fill-color: initial !important;
-  color: #0f172a !important;
-}
-
-body.light-theme .welcome-tabs {
-  background: rgba(0, 0, 0, 0.04) !important;
-  border-color: rgba(148, 163, 184, 0.15) !important;
-}
-
-body.light-theme .welcome-tab-btn {
-  color: #64748b !important;
-}
-
-body.light-theme .welcome-tab-btn:hover {
-  color: #1e293b !important;
-}
-
-body.light-theme .welcome-tab-btn.active {
-  background: #ffffff !important;
-  border: 1px solid rgba(148, 163, 184, 0.2) !important;
-  color: var(--color-primary) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
-}
-
-body.light-theme .syllabus-overview, 
-body.light-theme .upload-section, 
-body.light-theme .ai-section,
-body.light-theme .simulations-manager,
-body.light-theme .bookmarks-list-container,
-body.light-theme .analytics-dashboard,
-body.light-theme .metric-card,
-body.light-theme .analytics-callout {
-  background: rgba(255, 255, 255, 0.8) !important;
-  border-color: rgba(148, 163, 184, 0.2) !important;
-  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.5) !important;
-}
-
-body.light-theme .sim-list-item {
-  background: #ffffff !important;
-  border-color: rgba(148, 163, 184, 0.15) !important;
-  color: #1e293b !important;
-}
-
-body.light-theme .sim-list-item span {
-  color: #1e293b !important;
-}
-
-body.light-theme .bookmark-item {
-  border-color: rgba(148, 163, 184, 0.15) !important;
-}
-
-body.light-theme .bookmark-item div {
-  color: #1e293b !important;
-}
-
-body.light-theme .analytics-history-list div {
-  background: #ffffff !important;
-  border-color: rgba(148, 163, 184, 0.15) !important;
-}
-
-body.light-theme .analytics-history-list div div {
-  color: #1e293b !important;
-}
-
-body.light-theme .analytics-history-list div div span {
-  color: #64748b !important;
-}
 
 
 
-/* High contrast corrections for other elements */
-body.light-theme .module-passing {
-  color: #64748b !important;
-}
-
-body.light-theme #upload-dropzone p,
-body.light-theme .upload-desc,
-body.light-theme .syllabus-overview h3 {
-  color: #1e293b !important;
-}
-
-body.light-theme .log-entry {
-  color: #1e293b !important;
-}
-body.light-theme .log-entry.success {
-  color: #047857 !important; /* darker green */
-}
-body.light-theme .log-entry.error {
-  color: #b91c1c !important; /* darker red */
-}
-body.light-theme .simulations-manager h4 {
-  color: #1e293b !important;
-}
-body.light-theme .scrollbar-styled::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.15) !important;
-}
-
-body.light-theme #practice-mode-select,
-body.light-theme #btn-cancel-ai-generation {
-  background: #ffffff !important;
-  color: #1e293b !important;
-}
-
-body.light-theme #practice-mode-select option {
-  background: #ffffff !important;
-  color: #1e293b !important;
-}
 
 
 /* --- THEME CONTROLS COMPONENT --- */
@@ -287,19 +123,14 @@ body.light-theme #practice-mode-select option {
   background-size: 0.85rem;
 }
 
-body.light-theme .palette-select-dropdown {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(0,0,0,0.6)' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
-}
+
 
 .palette-select-dropdown option {
   background: var(--bg-main) !important;
   color: var(--text-main) !important;
 }
 
-body.light-theme .palette-select-dropdown option {
-  background: #ffffff !important;
-  color: #1e293b !important;
-}
+
 
 .palette-select-dropdown:hover,
 .palette-select-dropdown:focus {
@@ -365,11 +196,7 @@ body {
   background-position: center center;
 }
 
-body.light-theme .background-wrapper {
-  background-image: 
-    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-}
+
 
 #app-container {
   max-width: 1200px;
@@ -389,9 +216,7 @@ body.light-theme .background-wrapper {
   box-shadow: var(--glass-shadow);
 }
 
-body.light-theme .glass {
-  border: 1px solid rgba(148, 163, 184, 0.3);
-}
+
 
 h1, h2, h3, h4, h5 {
   font-family: var(--font-heading);
@@ -1735,9 +1560,7 @@ h1, h2, h3, h4, h5 {
   background: rgba(255, 255, 255, 0.05);
 }
 
-body.light-theme .btn-bookmark:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
+
 
 .form-help {
   font-size: 0.7rem;

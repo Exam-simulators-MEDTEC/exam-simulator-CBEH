@@ -1,36 +1,8 @@
-// Immediately restore theme and palette on script load to prevent flashing of unstyled content (FOUC)
-const savedTheme = localStorage.getItem("cbeh_theme");
-if (savedTheme === "light") {
-  document.body.classList.add("light-theme");
-}
+// Immediately restore palette on script load to prevent flashing of unstyled content (FOUC)
 const savedPalette = localStorage.getItem("cbeh_palette") || "original";
 document.body.dataset.palette = savedPalette;
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Theme Switcher Logic
-  const themeBtn = document.getElementById("theme-switcher-btn");
-  const iconSun = document.getElementById("theme-icon-sun");
-  const iconMoon = document.getElementById("theme-icon-moon");
-
-  function updateThemeIcons() {
-    if (document.body.classList.contains("light-theme")) {
-      iconSun.style.display = "block";
-      iconMoon.style.display = "none";
-    } else {
-      iconSun.style.display = "none";
-      iconMoon.style.display = "block";
-    }
-  }
-
-  if (themeBtn) {
-    updateThemeIcons();
-    themeBtn.addEventListener("click", () => {
-      document.body.classList.toggle("light-theme");
-      const isLight = document.body.classList.contains("light-theme");
-      localStorage.setItem("cbeh_theme", isLight ? "light" : "dark");
-      updateThemeIcons();
-    });
-  }
 
   // Palette Selector Logic
   const paletteSelect = document.getElementById("palette-select");
