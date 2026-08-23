@@ -1524,8 +1524,90 @@ h1, h2, h3, h4, h5 {
 }
 
 @media (max-width: 600px) {
+  /* Spacing fixes for form grids */
   .ai-form-grid {
-    grid-template-columns: 1fr;
-    gap: 0;
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
+  
+  /* Exam Header stacking */
+  .exam-header {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.75rem;
+    padding: 0.85rem !important;
+  }
+  
+  .header-left {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .header-right {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin: 0;
+  }
+  
+  #btn-home-exam {
+    flex: 1;
+    justify-content: center;
+    max-width: 48%;
+  }
+  
+  .timer-container {
+    flex: 1;
+    justify-content: center;
+    max-width: 48%;
+  }
+
+  /* Thumb-friendly exam navigation buttons */
+  .navigation-controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .keyboard-helper {
+    display: none !important; /* Hide keyboard helpers on touch devices */
+  }
+  
+  #btn-prev-question,
+  #btn-next-question {
+    flex: 1;
+    justify-content: center;
+    text-align: center;
+    padding: 0.75rem !important; /* Larger touch targets */
+  }
+  
+  /* Matching options key container */
+  .matching-key-container {
+    padding: 0.5rem !important;
+  }
+  
+  /* Welcome tabs responsive wrap */
+  .welcome-tabs {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .welcome-tab-btn {
+    width: 100%;
+    text-align: center;
+  }
+  
+  /* Manage simulations manager columns */
+  .sim-list-item {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.5rem;
+  }
+  
+  .sim-list-item button {
+    width: 100%;
   }
 }
