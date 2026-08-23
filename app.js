@@ -1658,9 +1658,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Shuffle multiple choice options and recalculate correct letter pointer
   function shuffleMultipleChoiceOptions(q) {
-    if (!q.options || q.options.length === 0) return;
+    if (!q.options || !Array.isArray(q.options) || q.options.length === 0) return;
+    
+    const rawOptions = q.options.map(opt => (opt || "").toString().replace(/^[A-E][\.\)]\s*/i, ""));
     if (!q.correctAnswer || typeof q.correctAnswer !== "string") {
-      const rawOptions = q.options.map(opt => opt.replace(/^[A-E][\.\)]\s*/i, ""));
       shuffleArray(rawOptions);
       q.options = rawOptions.map((txt, i) => String.fromCharCode(65 + i) + ". " + txt);
       q.correctAnswer = "A";
@@ -1668,7 +1669,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     // Strip prefixes like A. B. C.
-    const rawOptions = q.options.map(opt => opt.replace(/^[A-E][\.\)]\s*/i, ""));
     const correctLetter = q.correctAnswer;
     const correctIdx = correctLetter.charCodeAt(0) - 65;
     
@@ -1694,10 +1694,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Shuffle right-side matching items and re-map correct matches
   function shuffleMatchingOptions(q) {
-    if (!q.rightItems || q.rightItems.length === 0) return;
+    if (!q.rightItems || !Array.isArray(q.rightItems) || q.rightItems.length === 0) return;
     if (!q.correctAnswers) q.correctAnswers = {};
     
-    const rawRight = q.rightItems.map(opt => opt.replace(/^[A-E][\.\)]\s*/i, ""));
+    const rawRight = q.rightItems.map(opt => (opt || "").toString().replace(/^[A-E][\.\)]\s*/i, ""));
     const oldRightText = [...rawRight];
     
     // Shuffle right items
@@ -1711,8 +1711,8 @@ document.addEventListener("DOMContentLoaded", () => {
     for (let leftIdx in q.correctAnswers) {
       const oldRightIdx = q.correctAnswers[leftIdx];
       const targetText = oldRightText[oldRightIdx];
-      const newRightIdx = shuffledRaw.indexOf(targetText);
-      newCorrectAnswers[leftIdx] = newRightIdx;
+      const newRightIdx = targetText !== undefined ? shuffledRaw.indexOf(targetText) : -1;
+      newCorrectAnswers[leftIdx] = newRightIdx >= 0 ? newRightIdx : 0;
     }
     
     q.correctAnswers = newCorrectAnswers;
@@ -1776,29 +1776,34 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function cloneAndShuffleQuestionOptions(q) {
-    const cloned = JSON.parse(JSON.stringify(q));
-    
-    // Randomize options/answers for the cloned question
-    if (cloned.type === "multiple-choice") {
-      shuffleMultipleChoiceOptions(cloned);
-    } else if (cloned.type === "fill-in-the-gap") {
-      // Shuffle options list
-      if (!cloned.options || cloned.options.length === 0) {
-        const correct = cloned.correctAnswer || "Default";
-        const distractors = ["Spliceosome", "Sarcomere", "Fibroblast", "Sertoli", "Restriction", "Nucleus", "Apoptosome", "Neurulation", "Intramembranous", "Chondrocytes", "Tight"]
-          .filter(w => w.toLowerCase() !== correct.toLowerCase());
-        shuffleArray(distractors);
-        cloned.options = [correct, ...distractors.slice(0, 3)];
-        cloned.correctAnswer = correct;
+    try {
+      const cloned = JSON.parse(JSON.stringify(q));
+      
+      // Randomize options/answers for the cloned question
+      if (cloned.type === "multiple-choice") {
+        shuffleMultipleChoiceOptions(cloned);
+      } else if (cloned.type === "fill-in-the-gap") {
+        // Shuffle options list
+        if (!cloned.options || !Array.isArray(cloned.options) || cloned.options.length === 0) {
+          const correct = cloned.correctAnswer || "Default";
+          const distractors = ["Spliceosome", "Sarcomere", "Fibroblast", "Sertoli", "Restriction", "Nucleus", "Apoptosome", "Neurulation", "Intramembranous", "Chondrocytes", "Tight"]
+            .filter(w => w.toLowerCase() !== correct.toLowerCase());
+          shuffleArray(distractors);
+          cloned.options = [correct, ...distractors.slice(0, 3)];
+          cloned.correctAnswer = correct;
+        }
+        shuffleArray(cloned.options);
+      } else if (cloned.type === "matching") {
+        shuffleMatchingOptions(cloned);
+      } else if (cloned.type === "true-false-cluster") {
+        shuffleClusterStatements(cloned);
       }
-      shuffleArray(cloned.options);
-    } else if (cloned.type === "matching") {
-      shuffleMatchingOptions(cloned);
-    } else if (cloned.type === "true-false-cluster") {
-      shuffleClusterStatements(cloned);
+      
+      return cloned;
+    } catch (e) {
+      console.error("Error shuffling question options for question ID:", q.id, e);
+      return JSON.parse(JSON.stringify(q));
     }
-    
-    return cloned;
   }
 
   // PDF Text Extraction using PDF.js
