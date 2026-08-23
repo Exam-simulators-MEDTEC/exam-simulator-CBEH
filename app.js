@@ -585,11 +585,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const saveProgress = await customConfirm("Would you like to save your progress?\n(This will let you resume it later)", "Save Progress", "Abandon Progress");
         if (saveProgress) {
           saveCurrentSimulationProgress();
+          switchScreen("screen-welcome");
         } else {
-          localStorage.removeItem("cbeh_saved_simulation");
-          updateResumeButtonUI();
+          resetExam();
         }
-        resetExam();
       }
     });
   }
@@ -1794,13 +1793,17 @@ document.addEventListener("DOMContentLoaded", () => {
       clearInterval(state.timerInterval);
     }
     state.questions = [];
+    state.currentQuestionIndex = 0;
     state.answers = {};
     state.flags = {};
     state.selfGradedScores = {};
     state.isExamSubmitted = false;
     
-    switchScreen("screen-welcome");
     localStorage.removeItem("cbeh_active_exam_state_v1");
+    localStorage.removeItem("cbeh_saved_simulation");
+    
+    updateResumeButtonUI();
+    switchScreen("screen-welcome");
   }
 
   // ==========================================
