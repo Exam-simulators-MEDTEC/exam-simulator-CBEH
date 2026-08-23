@@ -1715,7 +1715,8 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateResumeButtonUI() {
     const btnResumeExam = document.getElementById("btn-resume-exam");
     if (!btnResumeExam) return;
-    if (localStorage.getItem("cbeh_saved_simulation")) {
+    const hasActiveExam = (state.questions && state.questions.length > 0) || !!localStorage.getItem("cbeh_saved_simulation") || !!localStorage.getItem("cbeh_active_exam_state_v1");
+    if (hasActiveExam && !state.isExamSubmitted) {
       btnResumeExam.style.display = "inline-flex";
     } else {
       btnResumeExam.style.display = "none";
@@ -2596,37 +2597,14 @@ document.addEventListener("DOMContentLoaded", () => {
       if (poolStatusCount) poolStatusCount.textContent = state.questionsPool.length;
       if (poolStatusSims) poolStatusSims.textContent = state.uploadedSimulationsCount;
       
-      // If there is an active/submitted exam, restore it
+      // Always land on Welcome screen on initial page load/refresh
       if (state.questions && state.questions.length > 0) {
-        // Build navigation UI
         buildGridNavigator();
-        
-        if (state.isExamSubmitted) {
-          // Submitted results screen
-          initializeSelfGradingList();
-          calculateScores();
-          switchScreen("screen-results");
-        } else {
-          // Active exam screen - Resume timer!
-          renderQuestion();
-          switchScreen("screen-exam");
-          updateTimerDisplay();
-          
-          if (state.timerInterval) clearInterval(state.timerInterval);
-          state.timerInterval = setInterval(() => {
-            state.timeLeft--;
-            updateTimerDisplay();
-            saveActiveExamState(); // fast save, no pool!
-            
-            if (state.timeLeft <= 0) {
-              clearInterval(state.timerInterval);
-              customAlert("Time is up! Submitting your exam.");
-              submitExam();
-            }
-          }, 1000);
-        }
-        return true;
       }
+      
+      updateResumeButtonUI();
+      switchScreen("screen-welcome");
+      return true;
     } catch (e) {
       console.error("Error loading app state:", e);
       localStorage.removeItem("cbeh_questions_pool_v1");
