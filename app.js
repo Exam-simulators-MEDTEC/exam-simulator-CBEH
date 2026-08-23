@@ -65,27 +65,38 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let activeModalResolve = null;
 
+  function closeModal(result = false) {
+    if (modalOverlay) modalOverlay.classList.remove("active");
+    if (activeModalResolve) {
+      const resolve = activeModalResolve;
+      activeModalResolve = null;
+      resolve(result);
+    }
+  }
+
   if (modalBtnConfirm) {
-    modalBtnConfirm.addEventListener("click", () => {
-      modalOverlay.classList.remove("active");
-      if (activeModalResolve) {
-        const resolve = activeModalResolve;
-        activeModalResolve = null;
-        resolve(true);
-      }
-    });
+    modalBtnConfirm.addEventListener("click", () => closeModal(true));
   }
 
   if (modalBtnCancel) {
-    modalBtnCancel.addEventListener("click", () => {
-      modalOverlay.classList.remove("active");
-      if (activeModalResolve) {
-        const resolve = activeModalResolve;
-        activeModalResolve = null;
-        resolve(false);
-      }
+    modalBtnCancel.addEventListener("click", () => closeModal(false));
+  }
+
+  if (modalOverlay) {
+    modalOverlay.addEventListener("click", (e) => {
+      if (e.target === modalOverlay) closeModal(false);
     });
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeModal(false);
+      const simModal = document.getElementById("sim-questions-modal");
+      if (simModal && simModal.classList.contains("active")) {
+        simModal.classList.remove("active");
+      }
+    }
+  });
 
   function showCustomModal(message, isConfirm, confirmLabel = "Confirm", cancelLabel = "Cancel") {
     if (!modalOverlay) return Promise.resolve(false);
@@ -2597,6 +2608,11 @@ document.addEventListener("DOMContentLoaded", () => {
       if (poolStatusCount) poolStatusCount.textContent = state.questionsPool.length;
       if (poolStatusSims) poolStatusSims.textContent = state.uploadedSimulationsCount;
       
+      // Ensure all modal overlays are closed on startup
+      if (modalOverlay) modalOverlay.classList.remove("active");
+      const simModal = document.getElementById("sim-questions-modal");
+      if (simModal) simModal.classList.remove("active");
+
       // Always land on Welcome screen on initial page load/refresh
       if (state.questions && state.questions.length > 0) {
         buildGridNavigator();
