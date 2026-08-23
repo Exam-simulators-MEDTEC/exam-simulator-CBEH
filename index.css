@@ -28,16 +28,122 @@
 
 /* --- LIGHT THEME OVERRIDES --- */
 body.light-theme {
-  --bg-main: #f8fafc; /* Soft clinical slate white */
-  --bg-card: rgba(255, 255, 255, 0.75);
-  --bg-card-hover: rgba(241, 245, 249, 0.95);
-  --border-color: rgba(148, 163, 184, 0.3);
+  --bg-main: #f1f5f9; /* Soft slate white */
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-card-hover: rgba(255, 255, 255, 0.95);
+  --border-color: rgba(148, 163, 184, 0.2);
   
   --text-main: #1e293b;
   --text-muted: #64748b;
+  --border-focus: #4f46e5;
+  --color-primary: #4f46e5; /* Clear medical indigo */
   
-  --glass-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.15);
+  --glass-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.1);
 }
+
+/* Specific elements adjustments in light theme */
+body.light-theme .welcome-card h1 {
+  background: linear-gradient(135deg, #1e293b 30%, #4f46e5 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+body.light-theme .welcome-tabs {
+  background: rgba(0, 0, 0, 0.04) !important;
+  border-color: rgba(148, 163, 184, 0.15) !important;
+}
+
+body.light-theme .welcome-tab-btn {
+  color: #64748b !important;
+}
+
+body.light-theme .welcome-tab-btn:hover {
+  color: #1e293b !important;
+}
+
+body.light-theme .welcome-tab-btn.active {
+  background: #ffffff !important;
+  border: 1px solid rgba(148, 163, 184, 0.2) !important;
+  color: #4f46e5 !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+}
+
+body.light-theme .syllabus-overview, 
+body.light-theme .upload-section, 
+body.light-theme .ai-section,
+body.light-theme .simulations-manager,
+body.light-theme .bookmarks-list-container,
+body.light-theme .analytics-dashboard,
+body.light-theme .metric-card,
+body.light-theme .analytics-callout {
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.5) !important;
+}
+
+body.light-theme .sim-list-item {
+  background: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.15) !important;
+  color: #1e293b !important;
+}
+
+body.light-theme .sim-list-item span {
+  color: #1e293b !important;
+}
+
+body.light-theme .bookmark-item {
+  border-color: rgba(148, 163, 184, 0.15) !important;
+}
+
+body.light-theme .bookmark-item div {
+  color: #1e293b !important;
+}
+
+body.light-theme .analytics-history-list div {
+  background: #ffffff !important;
+  border-color: rgba(148, 163, 184, 0.15) !important;
+}
+
+body.light-theme .analytics-history-list div div {
+  color: #1e293b !important;
+}
+
+body.light-theme .analytics-history-list div div span {
+  color: #64748b !important;
+}
+
+body.light-theme .glow-orb {
+  opacity: 0.15 !important;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, rgba(255, 255, 255, 0) 70%) !important;
+}
+
+/* High contrast corrections for other elements */
+body.light-theme .module-passing {
+  color: #64748b !important;
+}
+
+body.light-theme #upload-dropzone p,
+body.light-theme .upload-desc,
+body.light-theme .syllabus-overview h3 {
+  color: #1e293b !important;
+}
+
+body.light-theme .log-entry {
+  color: #1e293b !important;
+}
+body.light-theme .log-entry.success {
+  color: #047857 !important; /* darker green */
+}
+body.light-theme .log-entry.error {
+  color: #b91c1c !important; /* darker red */
+}
+body.light-theme .simulations-manager h4 {
+  color: #1e293b !important;
+}
+body.light-theme .scrollbar-styled::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15) !important;
+}
+
 
 /* --- THEME SWITCHER COMPONENT --- */
 .theme-switcher {

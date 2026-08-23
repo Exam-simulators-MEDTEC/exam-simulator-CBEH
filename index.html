@@ -169,7 +169,10 @@
               <p style="margin: 0; text-align: center;">Complete an exam to see your weakest vs strongest module.</p>
             </div>
             
-            <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Past Attempts</h4>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+              <h4 style="margin: 0; border: none; padding: 0;">Past Attempts</h4>
+              <button id="btn-reset-analytics" style="background: none; border: none; color: #f87171; font-size: 0.75rem; cursor: pointer; text-decoration: underline; padding: 0;">Reset Stats</button>
+            </div>
             <div id="analytics-history-list" class="scrollbar-styled" style="max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
               <!-- History items will be injected here -->
               <p class="text-muted" style="text-align: center; padding: 1rem;">No exam attempts recorded yet.</p>

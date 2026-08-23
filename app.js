@@ -2597,6 +2597,19 @@ Do not add markdown fences or other text. Return ONLY the raw JSON array.
     }
   }
 
+  // Analytics Reset Trigger
+  const btnResetAnalytics = document.getElementById("btn-reset-analytics");
+  if (btnResetAnalytics) {
+    btnResetAnalytics.addEventListener("click", () => {
+      const confirmReset = confirm("Are you sure you want to delete all your exam statistics and history? This cannot be undone.");
+      if (confirmReset) {
+        state.history = [];
+        localStorage.removeItem("cbeh_history");
+        updateAnalyticsUI();
+      }
+    });
+  }
+
   // Invoke state loading and manager UI render on startup
   loadAppState();
   updateSimulationsManagerUI();
