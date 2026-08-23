@@ -1423,6 +1423,34 @@ document.addEventListener("DOMContentLoaded", () => {
     // Auto questions review list builder (refresh on each calculation)
     autoQuestionsReviewList.innerHTML = "";
     
+    // Master Expand / Collapse Toolbar
+    const masterToolbar = document.createElement("div");
+    masterToolbar.style.cssText = "display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 0.85rem;";
+    
+    const btnExpandAll = document.createElement("button");
+    btnExpandAll.type = "button";
+    btnExpandAll.className = "btn btn-secondary";
+    btnExpandAll.style.cssText = "font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.05); color: var(--text-muted);";
+    btnExpandAll.textContent = "Expand All Explanations";
+    btnExpandAll.addEventListener("click", () => {
+      autoQuestionsReviewList.querySelectorAll(".review-details-box").forEach(box => box.style.display = "flex");
+      autoQuestionsReviewList.querySelectorAll(".btn-review-toggle").forEach(btn => btn.textContent = "Hide Answer & Explanation");
+    });
+
+    const btnCollapseAll = document.createElement("button");
+    btnCollapseAll.type = "button";
+    btnCollapseAll.className = "btn btn-secondary";
+    btnCollapseAll.style.cssText = "font-size: 0.75rem; padding: 0.3rem 0.6rem; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,0.05); color: var(--text-muted);";
+    btnCollapseAll.textContent = "Collapse All";
+    btnCollapseAll.addEventListener("click", () => {
+      autoQuestionsReviewList.querySelectorAll(".review-details-box").forEach(box => box.style.display = "none");
+      autoQuestionsReviewList.querySelectorAll(".btn-review-toggle").forEach(btn => btn.textContent = "Show Answer & Explanation");
+    });
+
+    masterToolbar.appendChild(btnExpandAll);
+    masterToolbar.appendChild(btnCollapseAll);
+    autoQuestionsReviewList.appendChild(masterToolbar);
+    
     state.questions.forEach((q) => {
       let isCorrect = false;
       const uAns = state.answers[q.id];
@@ -1693,15 +1721,40 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
     
+    const solutionWrapper = document.createElement("div");
+    solutionWrapper.className = "review-solution-wrapper";
+    solutionWrapper.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.5rem;";
+
+    const btnShowAnswer = document.createElement("button");
+    btnShowAnswer.type = "button";
+    btnShowAnswer.className = "btn btn-secondary btn-review-toggle";
+    btnShowAnswer.style.cssText = "align-self: flex-start; font-size: 0.75rem; padding: 0.3rem 0.7rem; border-radius: 6px; cursor: pointer; background: rgba(0, 212, 122, 0.1); border: 1px solid rgba(0, 212, 122, 0.25); color: var(--color-primary); font-weight: 600;";
+    btnShowAnswer.textContent = "Show Answer & Explanation";
+
+    const detailsBox = document.createElement("div");
+    detailsBox.className = "review-details-box";
+    detailsBox.style.cssText = "display: none; flex-direction: column; gap: 0.5rem;";
+
     const explanation = document.createElement("div");
     explanation.className = "review-explanation";
     explanation.textContent = `Explanation: ${q.explanation}`;
-    
+
+    detailsBox.appendChild(answersGrid);
+    detailsBox.appendChild(explanation);
+
+    btnShowAnswer.addEventListener("click", () => {
+      const isHidden = detailsBox.style.display === "none";
+      detailsBox.style.display = isHidden ? "flex" : "none";
+      btnShowAnswer.textContent = isHidden ? "Hide Answer & Explanation" : "Show Answer & Explanation";
+    });
+
+    solutionWrapper.appendChild(btnShowAnswer);
+    solutionWrapper.appendChild(detailsBox);
+
     card.appendChild(title);
     card.appendChild(text);
-    card.appendChild(answersGrid);
-    card.appendChild(explanation);
-    
+    card.appendChild(solutionWrapper);
+
     autoQuestionsReviewList.appendChild(card);
   }
 
@@ -3848,8 +3901,20 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   const downloadPdfBtn = document.getElementById("downloadPdfBtn");
+  const downloadPdfBtnTop = document.getElementById("downloadPdfBtnTop");
   if (downloadPdfBtn) {
     downloadPdfBtn.addEventListener("click", generateAndDownloadResultsPDF);
+  }
+  if (downloadPdfBtnTop) {
+    downloadPdfBtnTop.addEventListener("click", generateAndDownloadResultsPDF);
+  }
+
+  const btnHomeResultsTop = document.getElementById("btn-home-results-top");
+  if (btnHomeResultsTop) {
+    btnHomeResultsTop.addEventListener("click", () => {
+      if (btnHomeResults) btnHomeResults.click();
+      else switchScreen("screen-welcome");
+    });
   }
 
   // Expose global methods for testing & debugging
