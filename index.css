@@ -3,7 +3,7 @@
   --font-heading: 'Outfit', sans-serif;
   --font-body: 'Inter', sans-serif;
 
-  /* Colors */
+/* Colors - Original Theme (Indigo Classic) */
   --bg-main: #0b0f19;
   --bg-card: rgba(22, 28, 45, 0.45);
   --bg-card-hover: rgba(30, 41, 59, 0.65);
@@ -14,6 +14,7 @@
   --text-muted: #94a3b8;
   --text-accent: #38bdf8; /* Cyan-blue accent */
   --color-primary: #6366f1; /* Indigo */
+  --color-primary-hover: #4f46e5;
   
   /* Indicators */
   --color-unanswered: #334155;
@@ -29,23 +30,123 @@
 /* --- LIGHT THEME OVERRIDES --- */
 body.light-theme {
   --bg-main: #f1f5f9; /* Soft slate white */
-  --bg-card: rgba(255, 255, 255, 0.7);
-  --bg-card-hover: rgba(255, 255, 255, 0.95);
-  --border-color: rgba(148, 163, 184, 0.2);
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --bg-card-hover: rgba(255, 255, 255, 0.96);
+  --border-color: rgba(148, 163, 184, 0.25);
   
   --text-main: #1e293b;
   --text-muted: #64748b;
   --border-focus: #4f46e5;
   --color-primary: #4f46e5; /* Clear medical indigo */
+  --color-primary-hover: #3730a3;
   
   --glass-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.1);
 }
 
+/* --- COLOR PALETTE OVERRIDES --- */
+
+/* 1. Green Palette (Vibrant Mint/Emerald) */
+body[data-palette="green"] {
+  --bg-main: #0b1a14;
+  --bg-card: rgba(20, 44, 34, 0.55);
+  --bg-card-hover: rgba(28, 56, 44, 0.75);
+  --border-color: rgba(59, 245, 163, 0.12);
+  --border-focus: #00d47a;
+  --text-accent: #3bf5a3;
+  --color-primary: #00d47a;
+  --color-primary-hover: #00b366;
+  --color-unanswered: #1e2922;
+}
+body.light-theme[data-palette="green"] {
+  --bg-main: #f2faf6;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-card-hover: rgba(255, 255, 255, 0.97);
+  --border-color: rgba(0, 170, 91, 0.18);
+  --text-main: #0c2217;
+  --text-muted: #4a6c5c;
+  --border-focus: #00aa5b;
+  --color-primary: #00aa5b;
+  --color-primary-hover: #008f4c;
+}
+
+/* 2. Amber Palette (Warm Bronze/Amber) */
+body[data-palette="amber"] {
+  --bg-main: #18130b;
+  --bg-card: rgba(43, 33, 20, 0.55);
+  --bg-card-hover: rgba(54, 42, 26, 0.75);
+  --border-color: rgba(245, 158, 11, 0.12);
+  --border-focus: #f59e0b;
+  --text-accent: #fbbf24;
+  --color-primary: #f59e0b;
+  --color-primary-hover: #d97706;
+  --color-unanswered: #2e2314;
+}
+body.light-theme[data-palette="amber"] {
+  --bg-main: #faf7f2;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: rgba(255, 255, 255, 0.97);
+  --border-color: rgba(217, 119, 6, 0.18);
+  --text-main: #24160c;
+  --text-muted: #6e5545;
+  --border-focus: #d97706;
+  --color-primary: #d97706;
+  --color-primary-hover: #b45309;
+}
+
+/* 3. Rose Palette (Elegant Rose/Burgundy) */
+body[data-palette="rose"] {
+  --bg-main: #1b0b11;
+  --bg-card: rgba(44, 20, 28, 0.55);
+  --bg-card-hover: rgba(56, 28, 38, 0.75);
+  --border-color: rgba(244, 63, 94, 0.12);
+  --border-focus: #f43f5e;
+  --text-accent: #fda4af;
+  --color-primary: #f43f5e;
+  --color-primary-hover: #e11d48;
+  --color-unanswered: #291e22;
+}
+body.light-theme[data-palette="rose"] {
+  --bg-main: #faf2f5;
+  --bg-card: rgba(255, 255, 255, 0.85);
+  --bg-card-hover: rgba(255, 255, 255, 0.97);
+  --border-color: rgba(225, 29, 72, 0.18);
+  --text-main: #220c14;
+  --text-muted: #6c4a55;
+  --border-focus: #e11d48;
+  --color-primary: #e11d48;
+  --color-primary-hover: #be123c;
+}
+
+/* 4. Slate Palette (Minimalist Slate/Monochrome) */
+body[data-palette="slate"] {
+  --bg-main: #0f172a;
+  --bg-card: rgba(30, 41, 59, 0.55);
+  --bg-card-hover: rgba(51, 65, 85, 0.75);
+  --border-color: rgba(148, 163, 184, 0.15);
+  --border-focus: #94a3b8;
+  --text-accent: #cbd5e1;
+  --color-primary: #94a3b8;
+  --color-primary-hover: #64748b;
+  --color-unanswered: #1e293b;
+}
+body.light-theme[data-palette="slate"] {
+  --bg-main: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.8);
+  --bg-card-hover: rgba(255, 255, 255, 0.97);
+  --border-color: rgba(100, 116, 139, 0.18);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --border-focus: #64748b;
+  --color-primary: #64748b;
+  --color-primary-hover: #475569;
+}
+
 /* Specific elements adjustments in light theme */
 body.light-theme .welcome-card h1 {
-  background: linear-gradient(135deg, #1e293b 30%, #4f46e5 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
+  background: none !important;
+  -webkit-background-clip: initial !important;
+  -webkit-text-fill-color: initial !important;
+  color: #0f172a !important;
 }
 
 body.light-theme .welcome-tabs {
@@ -64,7 +165,7 @@ body.light-theme .welcome-tab-btn:hover {
 body.light-theme .welcome-tab-btn.active {
   background: #ffffff !important;
   border: 1px solid rgba(148, 163, 184, 0.2) !important;
-  color: #4f46e5 !important;
+  color: var(--color-primary) !important;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
 }
 
@@ -153,13 +254,61 @@ body.light-theme #practice-mode-select option {
 }
 
 
-/* --- THEME SWITCHER COMPONENT --- */
-.theme-switcher {
+/* --- THEME CONTROLS COMPONENT --- */
+.theme-controls-wrapper {
   position: fixed;
   top: 1.5rem;
   right: 1.5rem;
-  width: 44px;
-  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  z-index: 9999;
+}
+
+.palette-select-dropdown {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 0.5rem 1.8rem 0.5rem 1rem;
+  border-radius: 12px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(255,255,255,0.6)' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 0.85rem;
+}
+
+body.light-theme .palette-select-dropdown {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='rgba(0,0,0,0.6)' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19.5 8.25l-7.5 7.5-7.5-7.5'/%3E%3C/svg%3E");
+}
+
+.palette-select-dropdown option {
+  background: var(--bg-main) !important;
+  color: var(--text-main) !important;
+}
+
+body.light-theme .palette-select-dropdown option {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
+.palette-select-dropdown:hover,
+.palette-select-dropdown:focus {
+  border-color: var(--border-focus);
+}
+
+.theme-switcher {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -168,7 +317,6 @@ body.light-theme #practice-mode-select option {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 9999;
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--glass-shadow);
@@ -176,7 +324,7 @@ body.light-theme #practice-mode-select option {
 }
 
 .theme-switcher:hover {
-  transform: translateY(-3px);
+  transform: translateY(-2px);
   background: var(--bg-card-hover);
   color: var(--color-primary);
 }
@@ -278,7 +426,7 @@ h1, h2, h3, h4, h5 {
 .btn-primary:hover {
   transform: translateY(-1px);
   box-shadow: none;
-  background: #4f46e5;
+  background: var(--color-primary-hover);
 }
 
 .btn-secondary {
@@ -355,9 +503,7 @@ h1, h2, h3, h4, h5 {
 .welcome-card h1 {
   font-size: 3rem;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #ffffff 30%, #a5b4fc 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #ffffff;
 }
 
 .subtitle {

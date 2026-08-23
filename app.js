@@ -1,8 +1,10 @@
-// Immediately restore theme on script load to prevent flashing of unstyled content (FOUC)
+// Immediately restore theme and palette on script load to prevent flashing of unstyled content (FOUC)
 const savedTheme = localStorage.getItem("cbeh_theme");
 if (savedTheme === "light") {
   document.body.classList.add("light-theme");
 }
+const savedPalette = localStorage.getItem("cbeh_palette") || "original";
+document.body.dataset.palette = savedPalette;
 
 document.addEventListener("DOMContentLoaded", () => {
   // Theme Switcher Logic
@@ -27,6 +29,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const isLight = document.body.classList.contains("light-theme");
       localStorage.setItem("cbeh_theme", isLight ? "light" : "dark");
       updateThemeIcons();
+    });
+  }
+
+  // Palette Selector Logic
+  const paletteSelect = document.getElementById("palette-select");
+  if (paletteSelect) {
+    paletteSelect.value = savedPalette;
+    paletteSelect.addEventListener("change", () => {
+      const palette = paletteSelect.value;
+      document.body.dataset.palette = palette;
+      localStorage.setItem("cbeh_palette", palette);
     });
   }
 
