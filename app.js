@@ -641,6 +641,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function startExamWithQuestions(questionsList) {
+    sanitizeQuestionPool(questionsList);
     state.questions = questionsList;
     state.currentQuestionIndex = 0;
     state.answers = {};
@@ -909,7 +910,7 @@ document.addEventListener("DOMContentLoaded", () => {
       optionsList.className = "options-list";
       
       q.options.forEach((option, idx) => {
-        const optionVal = option.charAt(0); // A, B, C, D, E
+        const optionVal = String.fromCharCode(65 + idx); // A, B, C, D, E
         const label = document.createElement("label");
         label.className = `option-item ${existingAnswer === optionVal ? 'selected' : ''}`;
         
@@ -928,11 +929,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const badge = document.createElement("kbd");
         badge.className = "shortcut-key-badge";
-        badge.textContent = String.fromCharCode(65 + idx); // A, B, C, D, E
+        badge.textContent = optionVal;
         
+        let cleanText = typeof option === "string" ? option.trim() : option;
+        cleanText = cleanText.replace(/^([A-E])[\.\)\s\:]\s*/i, "").replace(/^([A-E])([A-Z].*)/, "$2").trim();
+
         const span = document.createElement("span");
         span.className = "option-text";
-        span.textContent = option;
+        span.textContent = cleanText;
         
         label.appendChild(radio);
         label.appendChild(badge);
@@ -964,7 +968,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const badge = document.createElement("kbd");
         badge.className = "shortcut-key-badge";
-        badge.textContent = idx === 0 ? "1 / T" : "2 / F";
+        badge.textContent = idx === 0 ? "T" : "F";
         
         const span = document.createElement("span");
         span.className = "option-text";
@@ -1968,6 +1972,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (q.statements) {
       q.statements.forEach(stmt => {
         if (stmt.statement) stmt.statement = clean(stmt.statement);
+        if (stmt.text) stmt.text = clean(stmt.text);
       });
     }
     if (q.leftItems) {
@@ -1976,6 +1981,65 @@ document.addEventListener("DOMContentLoaded", () => {
     if (q.rightItems) {
       q.rightItems = q.rightItems.map(item => clean(item));
     }
+  }
+
+  // Sanitize misclassified True/False Clusters and option prefixes
+  function sanitizeQuestion(q) {
+    if (!q) return;
+
+    // 1. Convert misclassified True/False Cluster questions
+    if (Array.isArray(q.options) && q.options.length > 0) {
+      const hasTrue = q.options.some(opt => typeof opt === "string" && opt.toLowerCase().trim() === "true");
+      const hasFalse = q.options.some(opt => typeof opt === "string" && opt.toLowerCase().trim() === "false");
+      const statementOpts = q.options.filter(opt => typeof opt === "string" && /^[A-D][\.\)]\s+/i.test(opt.trim()));
+
+      if ((hasTrue || hasFalse) && statementOpts.length >= 2) {
+        q.type = "true-false-cluster";
+        q.statements = statementOpts.map(opt => {
+          const match = opt.trim().match(/^([A-D])[\.\)]\s*(.*)/i);
+          return {
+            id: match ? match[1].toUpperCase() : "A",
+            text: match ? match[2].trim() : opt.trim(),
+            correctAnswer: null
+          };
+        });
+        delete q.options;
+        return;
+      }
+
+      // 2. Clean option text prefixes (e.g. "AWobble" -> "Wobble")
+      q.options = q.options.map(opt => {
+        if (typeof opt !== "string") return opt;
+        let cleaned = opt.trim();
+        const prefixMatch = cleaned.match(/^([A-E])[\.\)\s\:]\s*(.*)/i);
+        if (prefixMatch) {
+          cleaned = prefixMatch[2].trim();
+        } else {
+          const gluedMatch = cleaned.match(/^([A-E])([A-Z].*)/);
+          if (gluedMatch) {
+            cleaned = gluedMatch[2].trim();
+          }
+        }
+        return cleaned;
+      });
+    }
+
+    // 3. Clean statement prefixes if stored as "A. Statement text"
+    if (q.type === "true-false-cluster" && Array.isArray(q.statements)) {
+      q.statements.forEach(stmt => {
+        if (stmt.text) {
+          stmt.text = stmt.text.replace(/^([A-D])[\.\)]\s*/i, "").trim();
+        }
+        if (stmt.statement) {
+          stmt.statement = stmt.statement.replace(/^([A-D])[\.\)]\s*/i, "").trim();
+        }
+      });
+    }
+  }
+
+  function sanitizeQuestionPool(pool) {
+    if (!Array.isArray(pool)) return;
+    pool.forEach(sanitizeQuestion);
   }
 
   // Parse Mock Exam Text based on visual layout
@@ -2551,6 +2615,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       
+      // Always sanitize pool and active exam questions on load
+      sanitizeQuestionPool(state.questionsPool);
+      sanitizeQuestionPool(state.questions);
+
       // Update welcome screen stats
       if (poolStatusCount) poolStatusCount.textContent = state.questionsPool.length;
       if (poolStatusSims) poolStatusSims.textContent = state.uploadedSimulationsCount;
