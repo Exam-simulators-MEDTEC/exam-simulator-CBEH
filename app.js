@@ -1908,8 +1908,8 @@ document.addEventListener("DOMContentLoaded", () => {
         continue;
       }
       
-      // Detect question start: "ID. TYPE:" (supports optional parentheses and extra labels)
-      const qMatch = line.match(/^(\d+)\.\s*\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?:?\s*(.*)/i);
+      // Detect question start: "ID. TYPE:" (supports optional markdown headers, list bullet prefixes, parentheses and extra labels)
+      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)\.\s*\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?:?\s*(.*)/i);
       
       if (qMatch) {
         if (currentQuestion) {
@@ -1947,7 +1947,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else if (currentQuestion) {
         // Appending details to active question
         if (currentQuestion.type === "multiple-choice" || currentQuestion.type === "true-false" || currentQuestion.type === "fill-in-the-gap") {
-          const optMatch = line.match(/^([A-E])[\.\)]\s*(.*)/i);
+          const optMatch = line.match(/^(?:[\*\-\+]\s*)?([A-E])[\.\)]\s*(.*)/i);
           if (optMatch) {
             currentQuestion.options.push(line);
           } else {
@@ -1955,8 +1955,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
         } else if (currentQuestion.type === "matching") {
-          const conceptMatch = line.match(/^(\d+)[\.\)]\s*(.*)/);
-          const descMatch = line.match(/^([A-E])[\.\)]\s*(.*)/i);
+          const conceptMatch = line.match(/^(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(.*)/);
+          const descMatch = line.match(/^(?:[\*\-\+]\s*)?([A-E])[\.\)]\s*(.*)/i);
           
           if (conceptMatch) {
             currentQuestion.leftItems.push(line);
@@ -1967,7 +1967,7 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
         } else if (currentQuestion.type === "true-false-cluster") {
-          const stmtMatch = line.match(/^([A-D])[\.\)]\s*(.*)/i);
+          const stmtMatch = line.match(/^(?:[\*\-\+]\s*)?([A-D])[\.\)]\s*(.*)/i);
           if (stmtMatch) {
             currentQuestion.statements.push({
               id: stmtMatch[1].toUpperCase(),
@@ -2019,7 +2019,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentAnsId = -1;
     for (let j = 1; j < answerLines.length; j++) {
       const line = answerLines[j];
-      const ansMatch = line.match(/^(\d+)\.\s*(.*)/);
+      const ansMatch = line.match(/^(?:[\*\-\+]\s*)?(\d+)\.\s*(.*)/);
       
       if (ansMatch) {
         currentAnsId = parseInt(ansMatch[1], 10);
@@ -2073,7 +2073,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (q.type === "open") {
             q.modelAnswer += " " + line;
           } else if (q.type === "true-false-cluster") {
-            const clusterMatch = line.match(/^([A-D])[\)\.]\s*(True|False)/i);
+            const clusterMatch = line.match(/^(?:[\*\-\+]\s*)?([A-D])[\)\.]\s*(True|False)/i);
             if (clusterMatch) {
               const letter = clusterMatch[1].toUpperCase();
               const val = clusterMatch[2].toLowerCase() === "true" ? "True" : "False";
