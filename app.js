@@ -1898,17 +1898,17 @@ document.addEventListener("DOMContentLoaded", () => {
       const line = questionLines[i];
       const upperLine = line.toUpperCase();
       
-      // Module sections transitions
-      if (upperLine.includes("PART I:") || (upperLine.includes("CELL BIOLOGY") && upperLine.includes("QUESTIONS"))) {
+      // Module sections transitions (flexible matching for Part numbers, Section headers, and Module titles)
+      if (upperLine.includes("CELL BIOLOGY") || upperLine.includes("PART I:") || upperLine.includes("PART 1:") || upperLine.includes("SECTION I") || upperLine.includes("SECTION 1")) {
         currentModule = "Cell Biology";
         continue;
-      } else if (upperLine.includes("PART II:") || (upperLine.includes("HISTOLOGY") && upperLine.includes("QUESTIONS"))) {
+      } else if (upperLine.includes("HISTOLOGY") || upperLine.includes("PART II:") || upperLine.includes("PART 2:") || upperLine.includes("SECTION II") || upperLine.includes("SECTION 2")) {
         currentModule = "Histology";
         continue;
-      } else if (upperLine.includes("PART III:") || (upperLine.includes("EMBRYOLOGY") && upperLine.includes("QUESTIONS"))) {
+      } else if (upperLine.includes("EMBRYOLOGY") || upperLine.includes("PART III:") || upperLine.includes("PART 3:") || upperLine.includes("SECTION III") || upperLine.includes("SECTION 3")) {
         currentModule = "Embryology";
         continue;
-      } else if (upperLine.includes("PART IV:") || (upperLine.includes("INTERDISCIPLINARY") && upperLine.includes("QUESTIONS"))) {
+      } else if (upperLine.includes("INTERDISCIPLINARY") || upperLine.includes("PART IV:") || upperLine.includes("PART 4:") || upperLine.includes("SECTION IV") || upperLine.includes("SECTION 4")) {
         currentModule = "Interdisciplinary";
         continue;
       }
@@ -2033,8 +2033,35 @@ document.addEventListener("DOMContentLoaded", () => {
         const q = parsedQuestions.find(item => item.id === currentAnsId);
         if (q) {
           if (q.type === "multiple-choice") {
-            q.correctAnswer = ansContent.charAt(0).toUpperCase();
-            q.explanation = ansContent.substring(1).replace(/[\(\)]/g, "").trim() || "No explanation provided.";
+            const letterMatch = ansContent.match(/^([A-E])[\.\)\s\:\-]\s*(.*)/i) || ansContent.match(/^([A-E])$/i);
+            if (letterMatch) {
+              q.correctAnswer = letterMatch[1].toUpperCase();
+              q.explanation = letterMatch[2] ? letterMatch[2].replace(/[\(\)]/g, "").trim() : "No explanation provided.";
+            } else {
+              // Try matching answer text to one of the options
+              let foundLetter = null;
+              if (q.options && q.options.length > 0) {
+                for (let opt of q.options) {
+                  const optMatch = opt.match(/^([A-E])[\.\)]\s*(.*)/i);
+                  if (optMatch) {
+                    const optText = optMatch[2].toLowerCase().trim();
+                    if (ansContent.toLowerCase().includes(optText) || optText.includes(ansContent.toLowerCase().trim())) {
+                      foundLetter = optMatch[1].toUpperCase();
+                      break;
+                    }
+                  }
+                }
+              }
+              if (foundLetter) {
+                q.correctAnswer = foundLetter;
+                q.explanation = ansContent;
+              } else {
+                // Fallback to first char if A-E, else default to A
+                const firstChar = ansContent.charAt(0).toUpperCase();
+                q.correctAnswer = ["A", "B", "C", "D", "E"].includes(firstChar) ? firstChar : "A";
+                q.explanation = ansContent;
+              }
+            }
           } else if (q.type === "true-false") {
             const isTrue = ansContent.toLowerCase().startsWith("true");
             q.correctAnswer = isTrue ? "True" : "False";
@@ -2636,12 +2663,24 @@ document.addEventListener("DOMContentLoaded", () => {
       item.appendChild(optsContainer);
     }
 
+    // Solution Container (Hidden by default behind a toggle button)
+    const solutionWrapper = document.createElement("div");
+    solutionWrapper.style.cssText = "display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.35rem;";
+
+    const btnShowAnswer = document.createElement("button");
+    btnShowAnswer.className = "btn btn-secondary";
+    btnShowAnswer.style.cssText = "align-self: flex-start; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 6px; cursor: pointer; background: rgba(0, 212, 122, 0.1); border: 1px solid rgba(0, 212, 122, 0.25); color: var(--color-primary); font-weight: 600;";
+    btnShowAnswer.textContent = "Show Answer & Explanation";
+
+    const solutionContent = document.createElement("div");
+    solutionContent.style.cssText = "display: none; flex-direction: column; gap: 0.4rem;";
+
     // Answer
     if (q.correctAnswer || q.modelAnswer) {
       const ans = document.createElement("div");
       ans.className = "db-question-answer";
       ans.innerHTML = `<strong>Correct Answer:</strong> ${q.correctAnswer || q.modelAnswer}`;
-      item.appendChild(ans);
+      solutionContent.appendChild(ans);
     }
 
     // Explanation
@@ -2649,8 +2688,18 @@ document.addEventListener("DOMContentLoaded", () => {
       const exp = document.createElement("div");
       exp.className = "db-question-explanation";
       exp.innerHTML = `<strong>Explanation:</strong> ${q.explanation}`;
-      item.appendChild(exp);
+      solutionContent.appendChild(exp);
     }
+
+    btnShowAnswer.addEventListener("click", () => {
+      const isHidden = solutionContent.style.display === "none";
+      solutionContent.style.display = isHidden ? "flex" : "none";
+      btnShowAnswer.textContent = isHidden ? "Hide Answer & Explanation" : "Show Answer & Explanation";
+    });
+
+    solutionWrapper.appendChild(btnShowAnswer);
+    solutionWrapper.appendChild(solutionContent);
+    item.appendChild(solutionWrapper);
 
     return item;
   }
