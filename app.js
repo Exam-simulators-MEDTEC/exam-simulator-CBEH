@@ -63,8 +63,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalBtnCancel = document.getElementById("custom-modal-btn-cancel");
   const modalBtnConfirm = document.getElementById("custom-modal-btn-confirm");
 
-  function showCustomModal({ message, isConfirm, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, onCancel }) {
-    if (!modalOverlay) return;
+  let activeModalResolve = null;
+
+  if (modalBtnConfirm) {
+    modalBtnConfirm.addEventListener("click", () => {
+      modalOverlay.classList.remove("active");
+      if (activeModalResolve) {
+        const resolve = activeModalResolve;
+        activeModalResolve = null;
+        resolve(true);
+      }
+    });
+  }
+
+  if (modalBtnCancel) {
+    modalBtnCancel.addEventListener("click", () => {
+      modalOverlay.classList.remove("active");
+      if (activeModalResolve) {
+        const resolve = activeModalResolve;
+        activeModalResolve = null;
+        resolve(false);
+      }
+    });
+  }
+
+  function showCustomModal(message, isConfirm, confirmLabel = "Confirm", cancelLabel = "Cancel") {
+    if (!modalOverlay) return Promise.resolve(false);
     
     modalMessage.textContent = message;
     modalBtnConfirm.textContent = confirmLabel;
@@ -76,50 +100,19 @@ document.addEventListener("DOMContentLoaded", () => {
       modalBtnCancel.style.display = "none";
     }
     
-    const newConfirm = modalBtnConfirm.cloneNode(true);
-    const newCancel = modalBtnCancel.cloneNode(true);
-    
-    modalBtnConfirm.parentNode.replaceChild(newConfirm, modalBtnConfirm);
-    modalBtnCancel.parentNode.replaceChild(newCancel, modalBtnCancel);
-    
-    const activeConfirm = document.getElementById("custom-modal-btn-confirm");
-    const activeCancel = document.getElementById("custom-modal-btn-cancel");
-    
-    activeConfirm.addEventListener("click", () => {
-      modalOverlay.classList.remove("active");
-      if (onConfirm) onConfirm();
-    });
-    
-    activeCancel.addEventListener("click", () => {
-      modalOverlay.classList.remove("active");
-      if (onCancel) onCancel();
-    });
-    
     modalOverlay.classList.add("active");
+    
+    return new Promise(resolve => {
+      activeModalResolve = resolve;
+    });
   }
 
   function customAlert(message) {
-    return new Promise(resolve => {
-      showCustomModal({
-        message,
-        isConfirm: false,
-        confirmLabel: "OK",
-        onConfirm: resolve
-      });
-    });
+    return showCustomModal(message, false, "OK");
   }
 
   function customConfirm(message, confirmLabel = "Confirm", cancelLabel = "Cancel") {
-    return new Promise(resolve => {
-      showCustomModal({
-        message,
-        isConfirm: true,
-        confirmLabel,
-        cancelLabel,
-        onConfirm: () => resolve(true),
-        onCancel: () => resolve(false)
-      });
-    });
+    return showCustomModal(message, true, confirmLabel, cancelLabel);
   }
 
   // Update Resume Button visibility on load
