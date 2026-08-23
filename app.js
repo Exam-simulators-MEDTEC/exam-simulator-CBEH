@@ -931,8 +931,7 @@ document.addEventListener("DOMContentLoaded", () => {
         badge.className = "shortcut-key-badge";
         badge.textContent = optionVal;
         
-        let cleanText = typeof option === "string" ? option.trim() : option;
-        cleanText = cleanText.replace(/^([A-E])[\.\)\s\:]\s*/i, "").replace(/^([A-E])([A-Z].*)/, "$2").trim();
+        const cleanText = cleanOptionPrefix(option);
 
         const span = document.createElement("span");
         span.className = "option-text";
@@ -970,9 +969,11 @@ document.addEventListener("DOMContentLoaded", () => {
         badge.className = "shortcut-key-badge";
         badge.textContent = idx === 0 ? "T" : "F";
         
+        const cleanText = cleanOptionPrefix(option);
+
         const span = document.createElement("span");
         span.className = "option-text";
-        span.textContent = option;
+        span.textContent = cleanText;
         
         label.appendChild(radio);
         label.appendChild(badge);
@@ -1001,7 +1002,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const placeholder = document.createElement("span");
         placeholder.className = "gap-placeholder";
         placeholder.id = `gap-placeholder-${q.id}`;
-        placeholder.textContent = existingAnswer ? existingAnswer : "[Choose Option]";
+        placeholder.textContent = existingAnswer ? cleanOptionPrefix(existingAnswer) : "[Choose Option]";
         
         const textSpan2 = document.createElement("span");
         textSpan2.textContent = endText;
@@ -1020,6 +1021,7 @@ document.addEventListener("DOMContentLoaded", () => {
       optionsList.className = "options-list";
       
       q.options.forEach((option, idx) => {
+        const cleanText = cleanOptionPrefix(option);
         const label = document.createElement("label");
         label.className = `option-item ${existingAnswer === option ? 'selected' : ''}`;
         
@@ -1035,7 +1037,7 @@ document.addEventListener("DOMContentLoaded", () => {
           
           const placeholder = document.getElementById(`gap-placeholder-${q.id}`);
           if (placeholder) {
-            placeholder.textContent = option;
+            placeholder.textContent = cleanText;
           }
           saveAnswer();
         });
@@ -1046,7 +1048,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         const span = document.createElement("span");
         span.className = "option-text";
-        span.textContent = option;
+        span.textContent = cleanText;
         
         label.appendChild(radio);
         label.appendChild(badge);
@@ -1983,6 +1985,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Clean glued/letter/number prefixes from option text
+  function cleanOptionPrefix(opt) {
+    if (typeof opt !== "string") return opt;
+    let text = opt.trim();
+    // 1. Remove letter prefixes like "A. ", "A) ", "A: ", "A - "
+    text = text.replace(/^[A-E][\.\)\:\-–—\s]+\s*/i, "").trim();
+    // 2. Remove glued letter prefixes like "ASertoli", "BDefault", "CChondrocytes", "DRestriction"
+    if (/^[A-E][A-Z][a-z]/.test(text)) {
+      text = text.substring(1).trim();
+    }
+    // 3. Remove number prefixes like "1. ", "1) "
+    text = text.replace(/^[1-5][\.\)\:\-–—\s]+\s*/, "").trim();
+    return text;
+  }
+
   // Sanitize misclassified True/False Clusters and option prefixes
   function sanitizeQuestion(q) {
     if (!q) return;
@@ -1999,7 +2016,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const match = opt.trim().match(/^([A-D])[\.\)]\s*(.*)/i);
           return {
             id: match ? match[1].toUpperCase() : "A",
-            text: match ? match[2].trim() : opt.trim(),
+            text: match ? cleanOptionPrefix(match[2]) : cleanOptionPrefix(opt),
             correctAnswer: null
           };
         });
@@ -2007,32 +2024,15 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      // 2. Clean option text prefixes (e.g. "AWobble" -> "Wobble")
-      q.options = q.options.map(opt => {
-        if (typeof opt !== "string") return opt;
-        let cleaned = opt.trim();
-        const prefixMatch = cleaned.match(/^([A-E])[\.\)\s\:]\s*(.*)/i);
-        if (prefixMatch) {
-          cleaned = prefixMatch[2].trim();
-        } else {
-          const gluedMatch = cleaned.match(/^([A-E])([A-Z].*)/);
-          if (gluedMatch) {
-            cleaned = gluedMatch[2].trim();
-          }
-        }
-        return cleaned;
-      });
+      // 2. Clean option text prefixes (e.g. "ASertoli" -> "Sertoli")
+      q.options = q.options.map(opt => cleanOptionPrefix(opt));
     }
 
     // 3. Clean statement prefixes if stored as "A. Statement text"
     if (q.type === "true-false-cluster" && Array.isArray(q.statements)) {
       q.statements.forEach(stmt => {
-        if (stmt.text) {
-          stmt.text = stmt.text.replace(/^([A-D])[\.\)]\s*/i, "").trim();
-        }
-        if (stmt.statement) {
-          stmt.statement = stmt.statement.replace(/^([A-D])[\.\)]\s*/i, "").trim();
-        }
+        if (stmt.text) stmt.text = cleanOptionPrefix(stmt.text);
+        if (stmt.statement) stmt.statement = cleanOptionPrefix(stmt.statement);
       });
     }
   }
