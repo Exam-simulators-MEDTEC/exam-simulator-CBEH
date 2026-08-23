@@ -240,12 +240,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const welcomeTabSettings = document.getElementById("welcome-tab-settings");
   const welcomeTabBookmarks = document.getElementById("welcome-tab-bookmarks");
   const welcomeTabAnalytics = document.getElementById("welcome-tab-analytics");
+  const welcomeTabDatabase = document.getElementById("welcome-tab-database");
   const welcomePanelSettings = document.getElementById("welcome-panel-settings");
   const welcomePanelBookmarks = document.getElementById("welcome-panel-bookmarks");
   const welcomePanelAnalytics = document.getElementById("welcome-panel-analytics");
+  const welcomePanelDatabase = document.getElementById("welcome-panel-database");
   
-  const allWelcomeTabs = [welcomeTabSettings, welcomeTabBookmarks, welcomeTabAnalytics].filter(Boolean);
-  const allWelcomePanels = [welcomePanelSettings, welcomePanelBookmarks, welcomePanelAnalytics].filter(Boolean);
+  const allWelcomeTabs = [welcomeTabSettings, welcomeTabBookmarks, welcomeTabAnalytics, welcomeTabDatabase].filter(Boolean);
+  const allWelcomePanels = [welcomePanelSettings, welcomePanelBookmarks, welcomePanelAnalytics, welcomePanelDatabase].filter(Boolean);
 
   function switchWelcomeTab(activeTab, activePanel) {
     allWelcomeTabs.forEach(t => t.classList.remove("active"));
@@ -257,12 +259,15 @@ document.addEventListener("DOMContentLoaded", () => {
       renderBookmarksList();
     } else if (activeTab === welcomeTabAnalytics) {
       updateAnalyticsUI();
+    } else if (activeTab === welcomeTabDatabase) {
+      renderDatabaseUI();
     }
   }
 
   if (welcomeTabSettings) welcomeTabSettings.addEventListener("click", () => switchWelcomeTab(welcomeTabSettings, welcomePanelSettings));
   if (welcomeTabBookmarks) welcomeTabBookmarks.addEventListener("click", () => switchWelcomeTab(welcomeTabBookmarks, welcomePanelBookmarks));
   if (welcomeTabAnalytics) welcomeTabAnalytics.addEventListener("click", () => switchWelcomeTab(welcomeTabAnalytics, welcomePanelAnalytics));
+  if (welcomeTabDatabase) welcomeTabDatabase.addEventListener("click", () => switchWelcomeTab(welcomeTabDatabase, welcomePanelDatabase));
 
   function renderBookmarksList() {
     const listContainer = document.getElementById("bookmarks-list");
@@ -2260,6 +2265,24 @@ document.addEventListener("DOMContentLoaded", () => {
       info.appendChild(countSpan);
       item.appendChild(info);
       
+      const actionsDiv = document.createElement("div");
+      actionsDiv.style.cssText = "display: flex; gap: 0.35rem; align-items: center;";
+
+      const btnView = document.createElement("button");
+      btnView.style.cssText = "background: rgba(0, 212, 122, 0.1); border: 1px solid rgba(0, 212, 122, 0.2); color: var(--color-primary); padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer; transition: all 0.2s; flex-shrink: 0;";
+      btnView.textContent = "View";
+      
+      btnView.addEventListener("mouseover", () => {
+        btnView.style.background = "rgba(0, 212, 122, 0.2)";
+      });
+      btnView.addEventListener("mouseout", () => {
+        btnView.style.background = "rgba(0, 212, 122, 0.1)";
+      });
+      
+      btnView.addEventListener("click", () => {
+        openSimulationQuestionsModal(sourceName);
+      });
+      
       const btnRemove = document.createElement("button");
       btnRemove.style.cssText = "background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: #f87171; padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 4px; cursor: pointer; transition: all 0.2s; flex-shrink: 0;";
       btnRemove.textContent = "Remove";
@@ -2295,7 +2318,8 @@ document.addEventListener("DOMContentLoaded", () => {
           addLogEntry(`Removed "${sourceName}": deleted ${count} questions.`);
         }
       });
-      item.appendChild(btnRemove);
+      actionsDiv.appendChild(btnRemove);
+      item.appendChild(actionsDiv);
       
       listContainer.appendChild(item);
     });
@@ -2558,6 +2582,168 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem("cbeh_history");
         updateAnalyticsUI();
       }
+    });
+  }
+
+  // --- QUESTION PREVIEW & DATABASE EXPLORER ---
+  function renderQuestionDetailHTML(q) {
+    const item = document.createElement("div");
+    item.className = "db-question-item";
+
+    const header = document.createElement("div");
+    header.className = "db-question-header";
+
+    const badge = document.createElement("span");
+    badge.className = "db-question-type-badge";
+    badge.textContent = q.type || "Question";
+
+    const src = document.createElement("span");
+    src.className = "db-question-source";
+    src.textContent = q.sourceFilename ? `Source: ${q.sourceFilename}` : "Default Bank";
+
+    header.appendChild(badge);
+    header.appendChild(src);
+    item.appendChild(header);
+
+    const text = document.createElement("div");
+    text.className = "db-question-text";
+    text.textContent = `${q.id ? q.id + '. ' : ''}${q.question}`;
+    item.appendChild(text);
+
+    // Options list
+    if (q.options && q.options.length > 0) {
+      const optsContainer = document.createElement("div");
+      optsContainer.className = "db-question-options";
+      q.options.forEach(opt => {
+        const optDiv = document.createElement("div");
+        optDiv.textContent = opt;
+        optsContainer.appendChild(optDiv);
+      });
+      item.appendChild(optsContainer);
+    } else if (q.type === "matching" && q.leftItems && q.rightItems) {
+      const optsContainer = document.createElement("div");
+      optsContainer.className = "db-question-options";
+      optsContainer.innerHTML = `<strong>Left Items:</strong> ${q.leftItems.join(', ')}<br><strong>Right Items:</strong> ${q.rightItems.join(', ')}`;
+      item.appendChild(optsContainer);
+    } else if (q.type === "true-false-cluster" && q.statements) {
+      const optsContainer = document.createElement("div");
+      optsContainer.className = "db-question-options";
+      q.statements.forEach(s => {
+        const stmtDiv = document.createElement("div");
+        stmtDiv.textContent = `${s.id}) ${s.text} [Answer: ${s.correctAnswer || 'N/A'}]`;
+        optsContainer.appendChild(stmtDiv);
+      });
+      item.appendChild(optsContainer);
+    }
+
+    // Answer
+    if (q.correctAnswer || q.modelAnswer) {
+      const ans = document.createElement("div");
+      ans.className = "db-question-answer";
+      ans.innerHTML = `<strong>Correct Answer:</strong> ${q.correctAnswer || q.modelAnswer}`;
+      item.appendChild(ans);
+    }
+
+    // Explanation
+    if (q.explanation) {
+      const exp = document.createElement("div");
+      exp.className = "db-question-explanation";
+      exp.innerHTML = `<strong>Explanation:</strong> ${q.explanation}`;
+      item.appendChild(exp);
+    }
+
+    return item;
+  }
+
+  function openSimulationQuestionsModal(sourceName) {
+    const modal = document.getElementById("sim-questions-modal");
+    const title = document.getElementById("sim-modal-title");
+    const content = document.getElementById("sim-modal-content");
+    const btnClose = document.getElementById("sim-modal-close");
+    if (!modal || !title || !content) return;
+
+    title.textContent = `Simulation: ${sourceName}`;
+    content.innerHTML = "";
+
+    const questions = state.questionsPool.filter(q => (q.sourceFilename || "Unknown Upload") === sourceName);
+
+    if (questions.length === 0) {
+      content.innerHTML = `<p style="color: var(--text-muted); text-align: center;">No questions found for this simulation.</p>`;
+    } else {
+      questions.forEach(q => {
+        content.appendChild(renderQuestionDetailHTML(q));
+      });
+    }
+
+    modal.classList.add("active");
+
+    const closeHandler = () => {
+      modal.classList.remove("active");
+      if (btnClose) btnClose.removeEventListener("click", closeHandler);
+    };
+    if (btnClose) btnClose.addEventListener("click", closeHandler);
+
+    // Close on overlay click outside card
+    const modalOverlayHandler = (e) => {
+      if (e.target === modal) {
+        modal.classList.remove("active");
+        modal.removeEventListener("click", modalOverlayHandler);
+      }
+    };
+    modal.addEventListener("click", modalOverlayHandler);
+  }
+
+  function renderDatabaseUI() {
+    const container = document.getElementById("database-groups-container");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (state.questionsPool.length === 0) {
+      container.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 2rem 0;">Your master question pool is currently empty.</div>`;
+      return;
+    }
+
+    const subjects = ["Cell Biology", "Histology", "Embryology", "Interdisciplinary"];
+    
+    subjects.forEach(subj => {
+      const questions = state.questionsPool.filter(q => (q.module || "").toLowerCase().includes(subj.toLowerCase()));
+
+      const card = document.createElement("div");
+      card.className = "db-group-card";
+
+      const header = document.createElement("div");
+      header.className = "db-group-header";
+
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "db-group-title";
+      titleSpan.innerHTML = `${subj} <span class="db-group-count">${questions.length}</span>`;
+
+      const arrowSpan = document.createElement("span");
+      arrowSpan.className = "db-group-arrow";
+      arrowSpan.textContent = "▼";
+
+      header.appendChild(titleSpan);
+      header.appendChild(arrowSpan);
+
+      const body = document.createElement("div");
+      body.className = "db-group-body";
+
+      if (questions.length === 0) {
+        body.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 0.5rem 0;">No questions available in this subject.</div>`;
+      } else {
+        questions.forEach(q => {
+          body.appendChild(renderQuestionDetailHTML(q));
+        });
+      }
+
+      header.addEventListener("click", () => {
+        card.classList.toggle("active");
+      });
+
+      card.appendChild(header);
+      card.appendChild(body);
+      container.appendChild(card);
     });
   }
 

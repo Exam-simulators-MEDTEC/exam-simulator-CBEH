@@ -75,6 +75,7 @@
           <button id="welcome-tab-settings" class="welcome-tab-btn active">Pool & Uploads</button>
           <button id="welcome-tab-bookmarks" class="welcome-tab-btn">Bookmarks (0)</button>
           <button id="welcome-tab-analytics" class="welcome-tab-btn">Analytics</button>
+          <button id="welcome-tab-database" class="welcome-tab-btn">Question Database</button>
         </div>
 
         <!-- PANEL 1: SETTINGS & UPLOADS -->
@@ -164,6 +165,18 @@
             <div id="analytics-history-list" class="scrollbar-styled" style="max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
               <!-- History items will be injected here -->
               <p class="text-muted" style="text-align: center; padding: 1rem;">No exam attempts recorded yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PANEL 4: MASTER QUESTION DATABASE -->
+        <div id="welcome-panel-database" class="welcome-panel">
+          <div class="database-section">
+            <h3>Master Question Pool</h3>
+            <p class="database-desc" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.25rem;">Browse all questions currently stored in your simulator database, grouped by subject.</p>
+            
+            <div id="database-groups-container" class="database-groups-container" style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <!-- Accordions grouped by subject will be injected here -->
             </div>
           </div>
         </div>
@@ -419,7 +432,20 @@
     </div>
   </div>
 
+  <!-- Simulation Questions Viewer Modal -->
+  <div id="sim-questions-modal" class="custom-modal-overlay">
+    <div class="custom-modal-card glass" style="max-width: 600px; max-height: 85vh; overflow-y: auto; text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <h2 id="sim-modal-title" style="margin: 0; font-size: 1.2rem; font-weight: 600; color: #fff;">Simulation Questions</h2>
+        <button id="sim-modal-close" class="btn btn-secondary" style="min-width: unset; padding: 0.4rem 0.8rem; border-radius: 8px;">✕</button>
+      </div>
+      <div id="sim-modal-content" class="scrollbar-styled" style="max-height: 60vh; overflow-y: auto; padding-right: 0.5rem; display: flex; flex-direction: column; gap: 1.5rem;">
+        <!-- Questions list will be injected here -->
+      </div>
+    </div>
+  </div>
+
   <script src="questions.js"></script>
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=12"></script>
 </body>
 </html>
