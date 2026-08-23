@@ -433,33 +433,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-  const btnLoadDefault = document.getElementById("btn-load-default");
-  if (btnLoadDefault) {
-    btnLoadDefault.addEventListener("click", async () => {
-      const alreadyLoaded = state.questionsPool.some(q => (q.sourceFilename || "Official Syllabus Mock Exam") === "Official Syllabus Mock Exam");
-      if (alreadyLoaded) {
-        await customAlert("The default mock exam is already loaded in the pool!");
-        return;
-      }
-      
-      const defaultQs = JSON.parse(JSON.stringify(window.CBEH_QUESTIONS));
-      defaultQs.forEach(q => {
-        q.sourceFilename = "Official Syllabus Mock Exam";
-      });
-      
-      state.questionsPool.push(...defaultQs);
-      
-      updateUploadedSimulationsCount();
-      saveQuestionsPool();
-      updateSimulationsManagerUI();
-      
-      poolStatusCount.textContent = state.questionsPool.length;
-      poolStatusSims.textContent = state.uploadedSimulationsCount;
-      
-      addLogEntry("Loaded default official mock exam (70 questions).");
-    });
-  }
-
   const btnResetPool = document.getElementById("btn-reset-pool");
   if (btnResetPool) {
     btnResetPool.addEventListener("click", async () => {
@@ -2615,17 +2588,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
       
-      // Auto-seed default syllabus questions for first-time visitors
-      if (state.questionsPool.length === 0 && window.CBEH_QUESTIONS && window.CBEH_QUESTIONS.length > 0) {
-        const defaultQs = JSON.parse(JSON.stringify(window.CBEH_QUESTIONS));
-        defaultQs.forEach(q => {
-          q.sourceFilename = "Official Syllabus Mock Exam";
-        });
-        state.questionsPool.push(...defaultQs);
-        state.uploadedSimulationsCount = Math.max(1, state.uploadedSimulationsCount);
-        saveQuestionsPool();
-      }
-
       // Always sanitize pool and active exam questions on load
       sanitizeQuestionPool(state.questionsPool);
       sanitizeQuestionPool(state.questions);
