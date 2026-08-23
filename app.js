@@ -1659,11 +1659,26 @@ document.addEventListener("DOMContentLoaded", () => {
   // Shuffle multiple choice options and recalculate correct letter pointer
   function shuffleMultipleChoiceOptions(q) {
     if (!q.options || q.options.length === 0) return;
+    if (!q.correctAnswer || typeof q.correctAnswer !== "string") {
+      const rawOptions = q.options.map(opt => opt.replace(/^[A-E][\.\)]\s*/i, ""));
+      shuffleArray(rawOptions);
+      q.options = rawOptions.map((txt, i) => String.fromCharCode(65 + i) + ". " + txt);
+      q.correctAnswer = "A";
+      return;
+    }
     
     // Strip prefixes like A. B. C.
     const rawOptions = q.options.map(opt => opt.replace(/^[A-E][\.\)]\s*/i, ""));
     const correctLetter = q.correctAnswer;
     const correctIdx = correctLetter.charCodeAt(0) - 65;
+    
+    if (correctIdx < 0 || correctIdx >= rawOptions.length) {
+      shuffleArray(rawOptions);
+      q.options = rawOptions.map((txt, i) => String.fromCharCode(65 + i) + ". " + txt);
+      q.correctAnswer = "A";
+      return;
+    }
+    
     const correctText = rawOptions[correctIdx];
     
     // Create matching index array and shuffle
@@ -1673,13 +1688,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const shuffledRaw = indices.map(idx => rawOptions[idx]);
     const newCorrectIdx = shuffledRaw.indexOf(correctText);
     
-    q.correctAnswer = String.fromCharCode(65 + newCorrectIdx);
+    q.correctAnswer = String.fromCharCode(65 + newCorrectIdx >= 65 ? 65 + newCorrectIdx : 65);
     q.options = shuffledRaw.map((txt, i) => String.fromCharCode(65 + i) + ". " + txt);
   }
 
   // Shuffle right-side matching items and re-map correct matches
   function shuffleMatchingOptions(q) {
     if (!q.rightItems || q.rightItems.length === 0) return;
+    if (!q.correctAnswers) q.correctAnswers = {};
     
     const rawRight = q.rightItems.map(opt => opt.replace(/^[A-E][\.\)]\s*/i, ""));
     const oldRightText = [...rawRight];
@@ -1768,11 +1784,12 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (cloned.type === "fill-in-the-gap") {
       // Shuffle options list
       if (!cloned.options || cloned.options.length === 0) {
-        // Distractor fallback to meet 4 option criteria
+        const correct = cloned.correctAnswer || "Default";
         const distractors = ["Spliceosome", "Sarcomere", "Fibroblast", "Sertoli", "Restriction", "Nucleus", "Apoptosome", "Neurulation", "Intramembranous", "Chondrocytes", "Tight"]
-          .filter(w => w.toLowerCase() !== cloned.correctAnswer.toLowerCase());
+          .filter(w => w.toLowerCase() !== correct.toLowerCase());
         shuffleArray(distractors);
-        cloned.options = [cloned.correctAnswer, ...distractors.slice(0, 3)];
+        cloned.options = [correct, ...distractors.slice(0, 3)];
+        cloned.correctAnswer = correct;
       }
       shuffleArray(cloned.options);
     } else if (cloned.type === "matching") {
