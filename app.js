@@ -357,6 +357,10 @@ document.addEventListener("DOMContentLoaded", () => {
     if (activeTab) activeTab.classList.add("active");
     if (activePanel) activePanel.classList.add("active");
     
+    if (activeTab && activeTab.id) {
+      localStorage.setItem("cbeh_active_welcome_tab", activeTab.id);
+    }
+    
     if (activeTab === welcomeTabBookmarks) {
       renderBookmarksList();
     } else if (activeTab === welcomeTabAnalytics) {
@@ -665,6 +669,7 @@ document.addEventListener("DOMContentLoaded", () => {
         screen.classList.remove("active");
       }
     });
+    localStorage.setItem("cbeh_current_screen", screenId);
     window.scrollTo(0, 0);
   }
 
@@ -2663,13 +2668,34 @@ document.addEventListener("DOMContentLoaded", () => {
       const simModal = document.getElementById("sim-questions-modal");
       if (simModal) simModal.classList.remove("active");
 
-      // Always land on Welcome screen on initial page load/refresh
-      if (state.questions && state.questions.length > 0) {
+      // Restore saved screen and welcome tab on refresh
+      const savedScreen = localStorage.getItem("cbeh_current_screen");
+      const savedTab = localStorage.getItem("cbeh_active_welcome_tab");
+
+      if (savedScreen === "screen-exam" && state.questions && state.questions.length > 0 && !state.isExamSubmitted) {
         buildGridNavigator();
+        renderQuestion();
+        switchScreen("screen-exam");
+        updateTimerDisplay();
+        startTimer();
+      } else if (savedScreen === "screen-results" && state.questions && state.questions.length > 0 && state.isExamSubmitted) {
+        buildGridNavigator();
+        initializeSelfGradingList();
+        calculateScores();
+        switchScreen("screen-results");
+      } else {
+        switchScreen("screen-welcome");
+        if (savedTab) {
+          const tabBtn = document.getElementById(savedTab);
+          if (tabBtn) {
+            const panelId = savedTab.replace("welcome-tab-", "welcome-panel-");
+            const panel = document.getElementById(panelId);
+            if (panel) switchWelcomeTab(tabBtn, panel);
+          }
+        }
       }
-      
+
       updateResumeButtonUI();
-      switchScreen("screen-welcome");
       return true;
     } catch (e) {
       console.error("Error loading app state:", e);
