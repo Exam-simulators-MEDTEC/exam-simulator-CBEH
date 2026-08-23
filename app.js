@@ -135,9 +135,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return showCustomModal(message, true, confirmLabel, cancelLabel);
   }
 
-  // Update Resume Button visibility on load
-  updateResumeButtonUI();
-
   // Check if questions database is loaded
   if (!window.CBEH_QUESTIONS) {
     console.error("Questions database not found!");
