@@ -501,21 +501,7 @@ document.addEventListener("DOMContentLoaded", () => {
     switchScreen("screen-exam");
 
     // Initialize Timer
-    updateTimerDisplay();
-    saveAppState();
-    
-    if (state.timerInterval) clearInterval(state.timerInterval);
-    state.timerInterval = setInterval(() => {
-      state.timeLeft--;
-      updateTimerDisplay();
-      saveAppState(); // save timer updates on each tick
-      
-      if (state.timeLeft <= 0) {
-        clearInterval(state.timerInterval);
-        alert("Time is up! Submitting your exam.");
-        submitExam();
-      }
-    }, 1000);
+    startTimer();
   }
 
   function switchScreen(screenId) {
@@ -540,6 +526,29 @@ document.addEventListener("DOMContentLoaded", () => {
     if (state.timeLeft < 5 * 60) { // 5 minutes warning
       timerBox.classList.add("warning");
     }
+  }
+
+  function startTimer() {
+    if (state.timerInterval) clearInterval(state.timerInterval);
+    
+    // Timer is only active if the exam has NOT been submitted
+    if (state.isExamSubmitted) {
+      examTimer.textContent = "--:--";
+      return;
+    }
+    
+    updateTimerDisplay();
+    state.timerInterval = setInterval(() => {
+      state.timeLeft--;
+      updateTimerDisplay();
+      saveAppState(); // save timer updates on each tick
+      
+      if (state.timeLeft <= 0) {
+        clearInterval(state.timerInterval);
+        alert("Time is up! Submitting your exam.");
+        submitExam();
+      }
+    }, 1000);
   }
 
   function buildGridNavigator() {
