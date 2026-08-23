@@ -1782,6 +1782,39 @@ document.addEventListener("DOMContentLoaded", () => {
     return fullText;
   }
 
+  // Clean PDF extracted ligature spacing anomalies
+  function cleanQuestionText(q) {
+    if (!q) return;
+    const clean = (text) => {
+      if (typeof text !== "string") return text;
+      // 1. Clean double-sided spaced ligatures (e.g. bu ff er -> buffer)
+      text = text.replace(/\b([a-zA-Z]+)\s+(fl|fi|ff|ffi|ffl|ft|fy)\s+([a-zA-Z]+)\b/g, "$1$2$3");
+      // 2. Clean left-spaced ligatures (e.g. sti ff -> stiff)
+      text = text.replace(/\b([a-zA-Z]+)\s+(fl|fi|ff|ffi|ffl|ft|fy)\b/g, "$1$2");
+      // 3. Clean right-spaced ligatures (e.g. fl uidity -> fluidity)
+      text = text.replace(/\b(fl|fi|ff|ffi|ffl|ft|fy)\s+([a-zA-Z]+)\b/g, "$1$2");
+      return text;
+    };
+    
+    if (q.question) q.question = clean(q.question);
+    if (q.explanation) q.explanation = clean(q.explanation);
+    
+    if (q.options) {
+      q.options = q.options.map(opt => clean(opt));
+    }
+    if (q.statements) {
+      q.statements.forEach(stmt => {
+        if (stmt.statement) stmt.statement = clean(stmt.statement);
+      });
+    }
+    if (q.leftItems) {
+      q.leftItems = q.leftItems.map(item => clean(item));
+    }
+    if (q.rightItems) {
+      q.rightItems = q.rightItems.map(item => clean(item));
+    }
+  }
+
   // Parse Mock Exam Text based on visual layout
   function parseMockExamText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -2088,9 +2121,10 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error("Parsed 0 questions. Verify PDF formatting matches mock exam templates.");
         }
         
-        // Tag with file name source
+        // Tag with file name source and clean text ligatures
         parsedQuestions.forEach(q => {
           q.sourceFilename = file.name;
+          cleanQuestionText(q);
         });
 
         // Add parsed questions to master pool
@@ -2422,6 +2456,7 @@ Do not add markdown fences or other text. Return ONLY the raw JSON array.
       // Restore master pool
       if (parsed.questionsPool) {
         state.questionsPool = parsed.questionsPool;
+        state.questionsPool.forEach(cleanQuestionText);
       }
       if (parsed.uploadedSimulationsCount) {
         state.uploadedSimulationsCount = parsed.uploadedSimulationsCount;
@@ -2434,6 +2469,7 @@ Do not add markdown fences or other text. Return ONLY the raw JSON array.
       // If there is an active/submitted exam, restore it
       if (parsed.questions && parsed.questions.length > 0) {
         state.questions = parsed.questions;
+        state.questions.forEach(cleanQuestionText);
         state.currentQuestionIndex = parsed.currentQuestionIndex || 0;
         state.answers = parsed.answers || {};
         state.flags = parsed.flags || {};
