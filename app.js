@@ -18,6 +18,46 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Resume Saved Assessment Button Click Handler
+  const btnResumeExam = document.getElementById("btn-resume-exam");
+  if (btnResumeExam) {
+    btnResumeExam.addEventListener("click", () => {
+      const saved = localStorage.getItem("cbeh_saved_simulation");
+      if (!saved) return;
+      
+      try {
+        const progress = JSON.parse(saved);
+        
+        if (!progress || !Array.isArray(progress.questions) || progress.questions.length === 0) {
+          throw new Error("Saved simulation data is empty or invalid.");
+        }
+        
+        state.questions = progress.questions;
+        state.currentQuestionIndex = progress.currentQuestionIndex || 0;
+        state.answers = progress.answers || {};
+        state.flags = progress.flags || {};
+        state.timeLeft = progress.timeLeft || 90 * 60;
+        state.selfGradedScores = progress.selfGradedScores || {};
+        state.isExamSubmitted = !!progress.isExamSubmitted;
+        state.examMode = progress.examMode || "Full Simulation";
+        
+        buildGridNavigator();
+        renderQuestion();
+        
+        startTimer();
+        switchScreen("screen-exam");
+      } catch (e) {
+        console.error("Error restoring saved simulation:", e);
+        alert("Failed to restore saved simulation progress. The save state was corrupted and has been reset.");
+        localStorage.removeItem("cbeh_saved_simulation");
+        updateResumeButtonUI();
+      }
+    });
+  }
+
+  // Update Resume Button visibility on load
+  updateResumeButtonUI();
+
   // Check if questions database is loaded
   if (!window.CBEH_QUESTIONS) {
     console.error("Questions database not found!");
@@ -204,6 +244,10 @@ document.addEventListener("DOMContentLoaded", () => {
     btnStartBookmarksQuiz.addEventListener("click", () => {
       if (state.bookmarks.length === 0) return;
       
+      // Clear saved progress on starting a new simulation
+      localStorage.removeItem("cbeh_saved_simulation");
+      updateResumeButtonUI();
+
       // Clone bookmarked questions, shuffle them, and assign display IDs
       const bookmarkedQuestions = JSON.parse(JSON.stringify(state.bookmarks));
       shuffleArray(bookmarkedQuestions);
@@ -277,6 +321,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const modeSelect = document.getElementById("practice-mode-select");
     const mode = modeSelect ? modeSelect.value : "standard";
     
+    // Clear saved progress on starting a new simulation
+    localStorage.removeItem("cbeh_saved_simulation");
+    updateResumeButtonUI();
+
     if (mode === "standard") {
       state.examMode = "Full Simulation";
       startExam();
@@ -378,7 +426,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (btnHomeExam) {
     btnHomeExam.addEventListener("click", () => {
-      if (confirm("Are you sure you want to exit the exam and return to the main menu? Your progress on this simulation will be lost.")) {
+      if (confirm("Are you sure you want to exit the ongoing simulation?")) {
+        const saveProgress = confirm("Would you like to save your progress? (This will let you resume it later)");
+        if (saveProgress) {
+          saveCurrentSimulationProgress();
+        } else {
+          localStorage.removeItem("cbeh_saved_simulation");
+          updateResumeButtonUI();
+        }
         resetExam();
       }
     });
@@ -1041,6 +1096,10 @@ document.addEventListener("DOMContentLoaded", () => {
     
     state.isExamSubmitted = true;
     
+    // Clear saved progress on submission
+    localStorage.removeItem("cbeh_saved_simulation");
+    updateResumeButtonUI();
+    
     // Automatically set up the 16 open questions in the self-grading list
     initializeSelfGradingList();
     
@@ -1463,6 +1522,31 @@ document.addEventListener("DOMContentLoaded", () => {
     card.appendChild(explanation);
     
     autoQuestionsReviewList.appendChild(card);
+  }
+
+  function saveCurrentSimulationProgress() {
+    const progressToSave = {
+      questions: state.questions,
+      currentQuestionIndex: state.currentQuestionIndex,
+      answers: state.answers,
+      flags: state.flags,
+      timeLeft: state.timeLeft,
+      selfGradedScores: state.selfGradedScores,
+      isExamSubmitted: state.isExamSubmitted,
+      examMode: state.examMode
+    };
+    localStorage.setItem("cbeh_saved_simulation", JSON.stringify(progressToSave));
+    updateResumeButtonUI();
+  }
+
+  function updateResumeButtonUI() {
+    const btnResumeExam = document.getElementById("btn-resume-exam");
+    if (!btnResumeExam) return;
+    if (localStorage.getItem("cbeh_saved_simulation")) {
+      btnResumeExam.style.display = "inline-flex";
+    } else {
+      btnResumeExam.style.display = "none";
+    }
   }
 
   function resetExam() {

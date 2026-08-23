@@ -15,18 +15,6 @@
 </head>
 <body>
 
-  <!-- Floating Theme Controls -->
-  <div class="theme-controls-wrapper">
-    <select id="palette-select" class="palette-select-dropdown" aria-label="Select Color Palette">
-      <option value="" disabled selected hidden>Select Theme</option>
-      <option value="original">Indigo Classic</option>
-      <option value="green">Mint Emerald</option>
-      <option value="amber">Warm Bronze</option>
-      <option value="rose">Elegant Rose</option>
-      <option value="slate">Monochrome</option>
-    </select>
-  </div>
-
   <!-- Background decorative blur shapes -->
   <div class="background-wrapper">
   </div>
@@ -36,6 +24,18 @@
 
     <!-- SCREEN 1: FRONT PAGE (HERO) -->
     <section id="screen-welcome" class="screen active">
+      <!-- Floating Theme Controls -->
+      <div class="theme-controls-wrapper">
+        <select id="palette-select" class="palette-select-dropdown" aria-label="Select Color Palette">
+          <option value="" disabled selected hidden>Select Theme</option>
+          <option value="original">Indigo Classic</option>
+          <option value="green">Mint Emerald</option>
+          <option value="amber">Warm Bronze</option>
+          <option value="rose">Elegant Rose</option>
+          <option value="slate">Monochrome</option>
+        </select>
+      </div>
+
       <div class="welcome-card glass">
         <div class="badge">Academic Evaluation</div>
         <h1>Ready to start?</h1>
@@ -180,11 +180,17 @@
               <option value="interdisciplinary">Interdisciplinary Section Only</option>
             </select>
           </div>
-          <button id="btn-start-exam" class="btn btn-primary btn-glow btn-full" style="width: 100%; margin: 0;">
+          <button id="btn-start-exam" class="btn btn-primary btn-full" style="width: 100%; margin: 0;">
             <span>Start Simulation</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+          <button id="btn-resume-exam" class="btn btn-secondary btn-full" style="width: 100%; margin: 0; display: none;">
+            <span>Resume Saved Assessment</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
             </svg>
           </button>
         </div>
