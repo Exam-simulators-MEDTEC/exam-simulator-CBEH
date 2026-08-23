@@ -108,10 +108,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function customAlert(message) {
+    if (!modalOverlay) {
+      alert(message);
+      return Promise.resolve();
+    }
     return showCustomModal(message, false, "OK");
   }
 
+  // Update customConfirm with native confirm fallback if DOM overlay is missing
   function customConfirm(message, confirmLabel = "Confirm", cancelLabel = "Cancel") {
+    if (!modalOverlay) {
+      const res = confirm(message);
+      return Promise.resolve(res);
+    }
     return showCustomModal(message, true, confirmLabel, cancelLabel);
   }
 
