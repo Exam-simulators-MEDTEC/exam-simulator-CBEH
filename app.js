@@ -7,11 +7,14 @@ document.addEventListener("DOMContentLoaded", () => {
   // Palette Selector Logic
   const paletteSelect = document.getElementById("palette-select");
   if (paletteSelect) {
-    paletteSelect.value = savedPalette;
+    paletteSelect.value = "";
     paletteSelect.addEventListener("change", () => {
       const palette = paletteSelect.value;
-      document.body.dataset.palette = palette;
-      localStorage.setItem("cbeh_palette", palette);
+      if (palette) {
+        document.body.dataset.palette = palette;
+        localStorage.setItem("cbeh_palette", palette);
+      }
+      paletteSelect.value = "";
     });
   }
 
