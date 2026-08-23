@@ -1722,8 +1722,8 @@ document.addEventListener("DOMContentLoaded", () => {
         continue;
       }
       
-      // Detect question start: "ID. TYPE:"
-      const qMatch = line.match(/^(\d+)\.\s*(Multiple Choice|True or False|Open Question|Fill in the gap|Matching|True or False Cluster):?\s*(.*)/i);
+      // Detect question start: "ID. TYPE:" (supports optional parentheses and extra labels)
+      const qMatch = line.match(/^(\d+)\.\s*\(?\s*(Multiple Choice|True or False|Open Question|Fill in the gap|Matching|True or False Cluster)(?:[^)]*)?\)?:?\s*(.*)/i);
       
       if (qMatch) {
         if (currentQuestion) {
@@ -1870,6 +1870,10 @@ document.addEventListener("DOMContentLoaded", () => {
               modelAns = modelAns.substring(13).trim();
             } else if (modelAns.startsWith("Open:")) {
               modelAns = modelAns.substring(5).trim();
+            } else if (modelAns.startsWith("[Rubric - OQ]:")) {
+              modelAns = modelAns.substring(14).trim();
+            } else if (modelAns.startsWith("[Rubric]:")) {
+              modelAns = modelAns.substring(9).trim();
             }
             q.modelAnswer = modelAns;
             q.explanation = "Open question self-grading guide.";
