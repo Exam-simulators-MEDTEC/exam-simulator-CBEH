@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
         switchScreen("screen-exam");
       } catch (e) {
         console.error("Error restoring saved simulation:", e);
-        alert("Failed to restore saved simulation progress. The save state was corrupted and has been reset.");
+        alert("Failed to restore saved simulation progress.\n\nError: " + e.message + "\n\nStack: " + e.stack);
         localStorage.removeItem("cbeh_saved_simulation");
         updateResumeButtonUI();
       }
