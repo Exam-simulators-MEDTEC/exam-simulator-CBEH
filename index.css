@@ -112,10 +112,7 @@ body.light-theme .analytics-history-list div div span {
   color: #64748b !important;
 }
 
-body.light-theme .glow-orb {
-  opacity: 0.15 !important;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.4) 0%, rgba(255, 255, 255, 0) 70%) !important;
-}
+
 
 /* High contrast corrections for other elements */
 body.light-theme .module-passing {
@@ -213,39 +210,17 @@ body {
   overflow: hidden;
   z-index: -2;
   pointer-events: none;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 30px 30px;
+  background-position: center center;
 }
 
-.glow-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(140px);
-  opacity: 0.35;
-  pointer-events: none;
-}
-
-.orb-1 {
-  width: 400px;
-  height: 400px;
-  background: radial-gradient(circle, #4f46e5 0%, rgba(79, 70, 229, 0) 70%);
-  top: -10%;
-  left: -10%;
-}
-
-.orb-2 {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, #0284c7 0%, rgba(2, 132, 199, 0) 70%);
-  bottom: -15%;
-  right: -10%;
-}
-
-.orb-3 {
-  width: 300px;
-  height: 300px;
-  background: radial-gradient(circle, #10b981 0%, rgba(16, 185, 129, 0) 70%);
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+body.light-theme .background-wrapper {
+  background-image: 
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
 }
 
 #app-container {
@@ -261,9 +236,13 @@ body {
   background: var(--bg-card);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--border-color);
+  border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 20px;
   box-shadow: var(--glass-shadow);
+}
+
+body.light-theme .glass {
+  border: 1px solid rgba(148, 163, 184, 0.3);
 }
 
 h1, h2, h3, h4, h5 {
@@ -291,15 +270,15 @@ h1, h2, h3, h4, h5 {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #6366f1 0%, #4338ca 100%);
+  background: var(--color-primary);
   border: none;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  box-shadow: none;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
-  background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+  transform: translateY(-1px);
+  box-shadow: none;
+  background: #4f46e5;
 }
 
 .btn-secondary {
@@ -312,37 +291,20 @@ h1, h2, h3, h4, h5 {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+  background: var(--color-danger);
   border: none;
-  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.3);
+  box-shadow: none;
 }
 
 .btn-danger:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5);
-  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  transform: translateY(-1px);
+  box-shadow: none;
+  background: #dc2626;
 }
 
 .btn-full {
   width: 100%;
 }
-
-.btn-glow {
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-glow::after {
-  content: '';
-  position: absolute;
-  top: 0; left: -100%;
-  width: 100%; height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: all 0.6s;
-}
-
-.btn-glow:hover::after {
-  left: 100%;
 }
 
 .badge {
