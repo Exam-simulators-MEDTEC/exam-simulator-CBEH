@@ -54,7 +54,8 @@ document.addEventListener("DOMContentLoaded", () => {
     timeLeft: 90 * 60, // 90 minutes in seconds
     timerInterval: null,
     selfGradedScores: {}, // Maps open question ID to 1 or 0 (defaults to 0)
-    isExamSubmitted: false
+    isExamSubmitted: false,
+    examMode: "Full Simulation" // Default exam mode
   };
 
   let aiGenerationAbortController = null;
@@ -223,6 +224,7 @@ document.addEventListener("DOMContentLoaded", () => {
       shuffleArray(bookmarkedQuestions);
       bookmarkedQuestions.forEach((q, i) => q.id = i + 1);
       
+      state.examMode = "Bookmarks Quiz";
       startExamWithQuestions(bookmarkedQuestions);
     });
   }
@@ -349,6 +351,7 @@ document.addEventListener("DOMContentLoaded", () => {
         setTimeout(() => {
           aiLoadingOverlay.classList.remove("active");
           // Directly start the exam with these AI generated questions!
+          state.examMode = "AI Generation";
           startExamWithQuestions(questions);
         }, 1000);
         
@@ -425,13 +428,23 @@ document.addEventListener("DOMContentLoaded", () => {
     const mode = modeSelect ? modeSelect.value : "standard";
     
     if (mode === "standard") {
+      state.examMode = "Full Simulation";
       startExam();
     } else {
       let targetModule = "";
-      if (mode === "cell-biology") targetModule = "Cell Biology";
-      else if (mode === "histology") targetModule = "Histology";
-      else if (mode === "embryology") targetModule = "Embryology";
-      else if (mode === "interdisciplinary") targetModule = "Interdisciplinary";
+      if (mode === "cell-biology") {
+        targetModule = "Cell Biology";
+        state.examMode = "Cell Biology Focus";
+      } else if (mode === "histology") {
+        targetModule = "Histology";
+        state.examMode = "Histology Focus";
+      } else if (mode === "embryology") {
+        targetModule = "Embryology";
+        state.examMode = "Embryology Focus";
+      } else if (mode === "interdisciplinary") {
+        targetModule = "Interdisciplinary";
+        state.examMode = "Interdisciplinary Focus";
+      }
       
       const filtered = state.questionsPool.filter(q => q.module === targetModule);
       if (filtered.length === 0) {
@@ -1434,7 +1447,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // SAVE ATTEMPT TO HISTORY
     const attemptRecord = {
       date: new Date().toISOString(),
-      mode: state.questions.length === 10 ? "Mini-Quiz" : (state.questions.length === 35 ? "Half-Exam" : "Full Simulation"),
+      mode: state.examMode || "Full Simulation",
       totalScore: totalScore,
       totalQuestions: state.questions.length,
       grade: gradeStr,
@@ -2441,6 +2454,7 @@ Do not add markdown fences or other text. Return ONLY the raw JSON array.
       timeLeft: state.timeLeft,
       selfGradedScores: state.selfGradedScores,
       isExamSubmitted: state.isExamSubmitted,
+      examMode: state.examMode,
       activeScreen: document.querySelector(".screen.active")?.id || "screen-welcome"
     };
     localStorage.setItem("cbeh_app_state_v1", JSON.stringify(stateToSave));
@@ -2476,6 +2490,7 @@ Do not add markdown fences or other text. Return ONLY the raw JSON array.
         state.timeLeft = parsed.timeLeft || 90 * 60;
         state.selfGradedScores = parsed.selfGradedScores || {};
         state.isExamSubmitted = !!parsed.isExamSubmitted;
+        state.examMode = parsed.examMode || "Full Simulation";
         
         // Build navigation UI
         buildGridNavigator();
