@@ -15,6 +15,26 @@
 </head>
 <body>
 
+  <!-- Theme Switcher -->
+  <button id="theme-switcher-btn" class="theme-switcher" aria-label="Toggle Theme">
+    <!-- Sun Icon for switching to Dark Mode -->
+    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+    <!-- Moon Icon for switching to Light Mode -->
+    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+    </svg>
+  </button>
+
   <!-- Background decorative blur shapes -->
   <div class="background-wrapper">
     <div class="glow-orb orb-1"></div>
@@ -64,7 +84,9 @@
 
         <div class="welcome-tabs">
           <button id="welcome-tab-settings" class="welcome-tab-btn active">Pool & Uploads</button>
+          <button id="welcome-tab-bookmarks" class="welcome-tab-btn">Bookmarks (0)</button>
           <button id="welcome-tab-ai" class="welcome-tab-btn">AI Generator</button>
+          <button id="welcome-tab-analytics" class="welcome-tab-btn">Analytics</button>
         </div>
 
         <!-- PANEL 1: SETTINGS & UPLOADS -->
@@ -110,6 +132,48 @@
               </div>
             </div>
             <div id="upload-log" class="upload-log scrollbar-styled"></div>
+          </div>
+        </div>
+        
+        <!-- PANEL: BOOKMARKS -->
+        <div id="welcome-panel-bookmarks" class="welcome-panel">
+          <div class="bookmarks-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3>Your Saved Bookmarks</h3>
+            <button id="btn-start-bookmarks-quiz" class="btn btn-primary" disabled>Start Bookmarks Quiz</button>
+          </div>
+          <div id="bookmarks-list" class="bookmarks-list-container" style="max-height: 400px; overflow-y: auto; text-align: left; background: var(--bg-card); border-radius: 8px; padding: 1rem; border: 1px solid var(--border-color);">
+            <p class="no-bookmarks-msg">You have no bookmarked questions. Click the star icon during an exam to save questions here for review.</p>
+          </div>
+        </div>
+
+        <!-- PANEL 3: ANALYTICS DASHBOARD -->
+        <div id="welcome-panel-analytics" class="welcome-panel">
+          <div class="analytics-dashboard">
+            <h3>Historical Progress & Analytics Dashboard</h3>
+            <div class="analytics-metrics-grid" style="display: flex; gap: 1rem; margin-top: 1rem;">
+              <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                <div class="metric-label" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Average Grade</div>
+                <div class="metric-value" id="analytics-avg-grade" style="font-size: 1.5rem; font-weight: 700; color: var(--color-primary); margin-top: 0.5rem;">-- / 30</div>
+              </div>
+              <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                <div class="metric-label" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Pass Rate</div>
+                <div class="metric-value" id="analytics-pass-rate" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">--%</div>
+              </div>
+              <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                <div class="metric-label" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Attempts</div>
+                <div class="metric-value" id="analytics-attempts" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">0</div>
+              </div>
+            </div>
+            
+            <div class="analytics-callout" id="analytics-callout-msg" style="margin-top: 1rem; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
+              <p style="margin: 0; text-align: center;">Complete an exam to see your weakest vs strongest module.</p>
+            </div>
+            
+            <h4 style="margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Past Attempts</h4>
+            <div id="analytics-history-list" class="scrollbar-styled" style="max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
+              <!-- History items will be injected here -->
+              <p class="text-muted" style="text-align: center; padding: 1rem;">No exam attempts recorded yet.</p>
+            </div>
           </div>
         </div>
 
@@ -236,8 +300,8 @@
             </div>
 
             <!-- Actions & Flag under the question -->
-            <div class="question-footer">
-              <label class="flag-toggle" id="flag-label-container">
+            <div class="question-footer" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+              <label class="flag-toggle" id="flag-label-container" style="margin: 0;">
                 <input type="checkbox" id="flag-checkbox">
                 <span class="flag-box">
                   <svg class="flag-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -247,6 +311,14 @@
                   <span>Flag this question for review</span>
                 </span>
               </label>
+              
+              <!-- Bookmark Toggle -->
+              <button id="btn-bookmark-question" class="btn btn-icon" title="Bookmark this question" style="background: none; border: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-family: inherit; transition: all 0.2s; padding: 0.25rem 0.5rem; border-radius: 6px;">
+                <svg id="bookmark-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                <span id="bookmark-text-label">Bookmark</span>
+              </button>
             </div>
           </div>
 

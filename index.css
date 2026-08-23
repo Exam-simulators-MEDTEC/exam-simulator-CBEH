@@ -26,6 +26,47 @@
   --glass-blur: blur(16px);
 }
 
+/* --- LIGHT THEME OVERRIDES --- */
+body.light-theme {
+  --bg-main: #f8fafc; /* Soft clinical slate white */
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --bg-card-hover: rgba(241, 245, 249, 0.95);
+  --border-color: rgba(148, 163, 184, 0.3);
+  
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  
+  --glass-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.15);
+}
+
+/* --- THEME SWITCHER COMPONENT --- */
+.theme-switcher {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 9999;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s ease;
+}
+
+.theme-switcher:hover {
+  transform: translateY(-3px);
+  background: var(--bg-card-hover);
+  color: var(--color-primary);
+}
+
 /* BASE RESET & STRUCTURE */
 * {
   box-sizing: border-box;

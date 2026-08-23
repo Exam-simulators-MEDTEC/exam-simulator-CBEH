@@ -1,4 +1,35 @@
+// Immediately restore theme on script load to prevent flashing of unstyled content (FOUC)
+const savedTheme = localStorage.getItem("cbeh_theme");
+if (savedTheme === "light") {
+  document.body.classList.add("light-theme");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  // Theme Switcher Logic
+  const themeBtn = document.getElementById("theme-switcher-btn");
+  const iconSun = document.getElementById("theme-icon-sun");
+  const iconMoon = document.getElementById("theme-icon-moon");
+
+  function updateThemeIcons() {
+    if (document.body.classList.contains("light-theme")) {
+      iconSun.style.display = "block";
+      iconMoon.style.display = "none";
+    } else {
+      iconSun.style.display = "none";
+      iconMoon.style.display = "block";
+    }
+  }
+
+  if (themeBtn) {
+    updateThemeIcons();
+    themeBtn.addEventListener("click", () => {
+      document.body.classList.toggle("light-theme");
+      const isLight = document.body.classList.contains("light-theme");
+      localStorage.setItem("cbeh_theme", isLight ? "light" : "dark");
+      updateThemeIcons();
+    });
+  }
+
   // Check if questions database is loaded
   if (!window.CBEH_QUESTIONS) {
     console.error("Questions database not found!");
@@ -18,6 +49,8 @@ document.addEventListener("DOMContentLoaded", () => {
     currentQuestionIndex: 0,
     answers: {}, // Maps question ID to user response
     flags: {}, // Maps question ID to boolean
+    bookmarks: JSON.parse(localStorage.getItem("cbeh_bookmarks")) || [],
+    history: JSON.parse(localStorage.getItem("cbeh_history")) || [],
     timeLeft: 90 * 60, // 90 minutes in seconds
     timerInterval: null,
     selfGradedScores: {}, // Maps open question ID to 1 or 0 (defaults to 0)
@@ -50,6 +83,8 @@ document.addEventListener("DOMContentLoaded", () => {
   
   const flagCheckbox = document.getElementById("flag-checkbox");
   const flagLabelContainer = document.getElementById("flag-label-container");
+  const btnBookmarkQuestion = document.getElementById("btn-bookmark-question");
+  const bookmarkIconSvg = document.getElementById("bookmark-icon-svg");
   const questionsGridContainer = document.getElementById("questions-grid-container");
   
   // PDF upload elements
@@ -106,23 +141,95 @@ document.addEventListener("DOMContentLoaded", () => {
   // WELCOME TABS SWITCHING
   const welcomeTabSettings = document.getElementById("welcome-tab-settings");
   const welcomeTabAi = document.getElementById("welcome-tab-ai");
+  const welcomeTabBookmarks = document.getElementById("welcome-tab-bookmarks");
+  const welcomeTabAnalytics = document.getElementById("welcome-tab-analytics");
   const welcomePanelSettings = document.getElementById("welcome-panel-settings");
   const welcomePanelAi = document.getElementById("welcome-panel-ai");
+  const welcomePanelBookmarks = document.getElementById("welcome-panel-bookmarks");
+  const welcomePanelAnalytics = document.getElementById("welcome-panel-analytics");
   
-  if (welcomeTabSettings && welcomeTabAi) {
-    welcomeTabSettings.addEventListener("click", () => {
-      welcomeTabSettings.classList.add("active");
-      welcomeTabAi.classList.remove("active");
-      welcomePanelSettings.classList.add("active");
-      welcomePanelAi.classList.remove("active");
-    });
+  const allWelcomeTabs = [welcomeTabSettings, welcomeTabAi, welcomeTabBookmarks, welcomeTabAnalytics].filter(Boolean);
+  const allWelcomePanels = [welcomePanelSettings, welcomePanelAi, welcomePanelBookmarks, welcomePanelAnalytics].filter(Boolean);
+
+  function switchWelcomeTab(activeTab, activePanel) {
+    allWelcomeTabs.forEach(t => t.classList.remove("active"));
+    allWelcomePanels.forEach(p => p.classList.remove("active"));
+    if (activeTab) activeTab.classList.add("active");
+    if (activePanel) activePanel.classList.add("active");
     
-    welcomeTabAi.addEventListener("click", () => {
-      welcomeTabAi.classList.add("active");
-      welcomeTabSettings.classList.remove("active");
-      welcomePanelAi.classList.add("active");
-      welcomePanelSettings.classList.remove("active");
+    if (activeTab === welcomeTabBookmarks) {
+      renderBookmarksList();
+    } else if (activeTab === welcomeTabAnalytics) {
+      updateAnalyticsUI();
+    }
+  }
+
+  if (welcomeTabSettings) welcomeTabSettings.addEventListener("click", () => switchWelcomeTab(welcomeTabSettings, welcomePanelSettings));
+  if (welcomeTabAi) welcomeTabAi.addEventListener("click", () => switchWelcomeTab(welcomeTabAi, welcomePanelAi));
+  if (welcomeTabBookmarks) welcomeTabBookmarks.addEventListener("click", () => switchWelcomeTab(welcomeTabBookmarks, welcomePanelBookmarks));
+  if (welcomeTabAnalytics) welcomeTabAnalytics.addEventListener("click", () => switchWelcomeTab(welcomeTabAnalytics, welcomePanelAnalytics));
+
+  function renderBookmarksList() {
+    const listContainer = document.getElementById("bookmarks-list");
+    const btnStartQuiz = document.getElementById("btn-start-bookmarks-quiz");
+    if (!listContainer || !btnStartQuiz) return;
+
+    if (welcomeTabBookmarks) {
+      welcomeTabBookmarks.textContent = `Bookmarks (${state.bookmarks.length})`;
+    }
+    
+    if (state.bookmarks.length === 0) {
+      listContainer.innerHTML = '<p class="no-bookmarks-msg" style="text-align: center; padding: 2rem 0; color: var(--text-muted);">You have no bookmarked questions. Click the star icon during an exam to save questions here for review.</p>';
+      btnStartQuiz.disabled = true;
+      return;
+    }
+    
+    btnStartQuiz.disabled = false;
+    listContainer.innerHTML = "";
+    
+    state.bookmarks.forEach((q, idx) => {
+      const el = document.createElement("div");
+      el.className = "bookmark-item";
+      el.style.cssText = "padding: 1rem; border-bottom: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 0.5rem;";
+      
+      el.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: start; gap: 1rem;">
+          <div style="font-weight: 600; font-size: 0.85rem; color: var(--color-primary); text-transform: uppercase;">${q.module} &bull; ${q.type.replace("-", " ")}</div>
+          <button class="btn-remove-bookmark" data-index="${idx}" style="background: none; border: none; cursor: pointer; color: #f87171; font-size: 0.75rem; text-decoration: underline; padding: 0;">Remove</button>
+        </div>
+        <div style="font-size: 0.95rem; color: #fff; line-height: 1.4;">${q.question}</div>
+      `;
+      listContainer.appendChild(el);
     });
+
+    listContainer.querySelectorAll('.btn-remove-bookmark').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const index = parseInt(e.target.getAttribute('data-index'), 10);
+        state.bookmarks.splice(index, 1);
+        localStorage.setItem("cbeh_bookmarks", JSON.stringify(state.bookmarks));
+        renderBookmarksList();
+      });
+    });
+  }
+
+  // Initialize Bookmarks Quiz Button
+  const btnStartBookmarksQuiz = document.getElementById("btn-start-bookmarks-quiz");
+  if (btnStartBookmarksQuiz) {
+    btnStartBookmarksQuiz.addEventListener("click", () => {
+      if (state.bookmarks.length === 0) return;
+      
+      // Clone bookmarked questions, shuffle them, and assign display IDs
+      const bookmarkedQuestions = JSON.parse(JSON.stringify(state.bookmarks));
+      shuffleArray(bookmarkedQuestions);
+      bookmarkedQuestions.forEach((q, i) => q.id = i + 1);
+      
+      startExamWithQuestions(bookmarkedQuestions);
+    });
+  }
+
+  // Set initial bookmarks count badge text
+  if (welcomeTabBookmarks) {
+    welcomeTabBookmarks.textContent = `Bookmarks (${state.bookmarks.length})`;
   }
 
   // API KEY PASSWORD SHOW/HIDE
@@ -360,6 +467,33 @@ document.addEventListener("DOMContentLoaded", () => {
     updateNavigationGrid();
     saveAppState();
   });
+
+  // BOOKMARK EVENT
+  if (btnBookmarkQuestion) {
+    btnBookmarkQuestion.addEventListener("click", () => {
+      const q = state.questions[state.currentQuestionIndex];
+      const bookmarkIndex = state.bookmarks.findIndex(b => b.question === q.question);
+      
+      if (bookmarkIndex >= 0) {
+        state.bookmarks.splice(bookmarkIndex, 1);
+        bookmarkIconSvg.setAttribute("fill", "none");
+        bookmarkIconSvg.style.color = "currentColor";
+      } else {
+        state.bookmarks.push(JSON.parse(JSON.stringify(q)));
+        bookmarkIconSvg.setAttribute("fill", "var(--color-primary)");
+        bookmarkIconSvg.style.color = "var(--color-primary)";
+      }
+      
+      localStorage.setItem("cbeh_bookmarks", JSON.stringify(state.bookmarks));
+      
+      if (welcomeTabBookmarks) {
+        welcomeTabBookmarks.textContent = `Bookmarks (${state.bookmarks.length})`;
+      }
+      if (typeof renderBookmarksList === "function") {
+        renderBookmarksList();
+      }
+    });
+  }
 
   // SUBMIT EXAM
   btnSubmitExam.addEventListener("click", () => {
@@ -653,6 +787,18 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Flag Checkbox state
     flagCheckbox.checked = !!state.flags[q.id];
+
+    // Bookmark Button State
+    if (bookmarkIconSvg) {
+      const isBookmarked = state.bookmarks.some(b => b.question === q.question);
+      if (isBookmarked) {
+        bookmarkIconSvg.setAttribute("fill", "var(--color-primary)");
+        bookmarkIconSvg.style.color = "var(--color-primary)";
+      } else {
+        bookmarkIconSvg.setAttribute("fill", "none");
+        bookmarkIconSvg.style.color = "currentColor";
+      }
+    }
     
     // Clear Answer Inputs Area
     answerInputsArea.innerHTML = "";
@@ -1283,6 +1429,23 @@ document.addEventListener("DOMContentLoaded", () => {
       
       resultStatusBadge.textContent = "FAILED";
       resultScoreSummary.innerHTML += `<div style="font-size: 0.95rem; color: #f87171; margin-top: 0.5rem; font-weight: 500;">Reasons for fail: ${failReasons.join(", ")}</div>`;
+    }
+    
+    // SAVE ATTEMPT TO HISTORY
+    const attemptRecord = {
+      date: new Date().toISOString(),
+      mode: state.questions.length === 10 ? "Mini-Quiz" : (state.questions.length === 35 ? "Half-Exam" : "Full Simulation"),
+      totalScore: totalScore,
+      totalQuestions: state.questions.length,
+      grade: gradeStr,
+      isPassed: isPassed,
+      moduleScores: moduleScores
+    };
+    state.history.push(attemptRecord);
+    localStorage.setItem("cbeh_history", JSON.stringify(state.history));
+    
+    if (typeof updateAnalyticsUI === "function") {
+      updateAnalyticsUI();
     }
     
     saveAppState();
@@ -2314,9 +2477,130 @@ Do not add markdown fences or other text. Return ONLY the raw JSON array.
     return false;
   }
 
+  // Analytics Dashboard Calculation & Render Engine
+  function updateAnalyticsUI() {
+    const avgGradeEl = document.getElementById("analytics-avg-grade");
+    const passRateEl = document.getElementById("analytics-pass-rate");
+    const attemptsEl = document.getElementById("analytics-attempts");
+    const calloutEl = document.getElementById("analytics-callout-msg");
+    const historyList = document.getElementById("analytics-history-list");
+    
+    if (!avgGradeEl) return;
+    
+    if (!state.history || state.history.length === 0) {
+      avgGradeEl.textContent = "-- / 30";
+      passRateEl.textContent = "--%";
+      attemptsEl.textContent = "0";
+      calloutEl.innerHTML = `<p style="margin: 0; text-align: center; color: var(--text-muted);">Complete an exam to see your weakest vs strongest module.</p>`;
+      historyList.innerHTML = `<p class="text-muted" style="text-align: center; padding: 1rem;">No exam attempts recorded yet.</p>`;
+      return;
+    }
+    
+    attemptsEl.textContent = state.history.length;
+    
+    let passCount = 0;
+    let validGradeSum = 0;
+    let validGradeCount = 0;
+    
+    let totalModuleStats = {
+      "Cell Biology": { score: 0, total: 0 },
+      "Histology": { score: 0, total: 0 },
+      "Embryology": { score: 0, total: 0 },
+      "Interdisciplinary": { score: 0, total: 0 }
+    };
+    
+    historyList.innerHTML = "";
+    
+    const sortedHistory = [...state.history].sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    sortedHistory.forEach(attempt => {
+      if (attempt.isPassed) passCount++;
+      
+      let numGrade = parseFloat(attempt.grade.replace("L", ""));
+      if (!isNaN(numGrade)) {
+        if (attempt.grade === "30L") numGrade = 31;
+        validGradeSum += numGrade;
+        validGradeCount++;
+      }
+      
+      if (attempt.moduleScores) {
+        for (let mod in totalModuleStats) {
+          if (attempt.moduleScores[mod]) {
+            totalModuleStats[mod].score += attempt.moduleScores[mod].score;
+            totalModuleStats[mod].total += attempt.moduleScores[mod].total;
+          }
+        }
+      }
+      
+      const dateStr = new Date(attempt.date).toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
+      
+      const itemHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 0.5rem; background: rgba(255,255,255,0.02);">
+          <div>
+            <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">${attempt.mode} <span style="font-weight: normal; color: var(--text-muted); font-size: 0.8rem;">— ${dateStr}</span></div>
+            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Score: ${attempt.totalScore}/${attempt.totalQuestions}</div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-weight: 700; color: ${attempt.isPassed ? 'var(--color-primary)' : '#f87171'};">${attempt.isPassed ? 'PASS' : 'FAIL'}</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: #fff;">Grade: ${attempt.grade}</div>
+          </div>
+        </div>
+      `;
+      historyList.innerHTML += itemHTML;
+    });
+    
+    const passRate = (passCount / state.history.length) * 100;
+    passRateEl.textContent = `${passRate.toFixed(1)}%`;
+    passRateEl.style.color = passRate >= 60 ? 'var(--color-primary)' : '#f87171';
+    
+    if (validGradeCount > 0) {
+      let avgGrade = validGradeSum / validGradeCount;
+      if (avgGrade > 30) avgGrade = 30; // visually cap at 30
+      avgGradeEl.textContent = `${avgGrade.toFixed(1)} / 30`;
+    }
+    
+    let strongestMod = "";
+    let strongestPct = -1;
+    let weakestMod = "";
+    let weakestPct = 101;
+    
+    for (let mod in totalModuleStats) {
+      if (totalModuleStats[mod].total > 0) {
+        let pct = (totalModuleStats[mod].score / totalModuleStats[mod].total) * 100;
+        if (pct > strongestPct) {
+          strongestPct = pct;
+          strongestMod = mod;
+        }
+        if (pct < weakestPct) {
+          weakestPct = pct;
+          weakestMod = mod;
+        }
+      }
+    }
+    
+    if (strongestMod && weakestMod) {
+      calloutEl.innerHTML = `
+        <div style="display: flex; justify-content: space-between; gap: 1rem; text-align: left;">
+          <div style="flex: 1;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Strongest Module</div>
+            <div style="font-weight: 600; color: var(--color-primary); margin-top: 0.25rem;">${strongestMod} (${strongestPct.toFixed(0)}%)</div>
+          </div>
+          <div style="flex: 1;">
+            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Weakest Module</div>
+            <div style="font-weight: 600; color: #f87171; margin-top: 0.25rem;">${weakestMod} (${weakestPct.toFixed(0)}%)</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
   // Invoke state loading and manager UI render on startup
   loadAppState();
   updateSimulationsManagerUI();
+  updateAnalyticsUI();
 
   // Set initial stats UI text in the DOM
   poolStatusCount.textContent = state.questionsPool.length;
