@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
     examMode: "Full Simulation" // Default exam mode
   };
 
-  let aiGenerationAbortController = null;
+
 
   // DOM Elements
   const screenWelcome = document.getElementById("screen-welcome");
@@ -141,16 +141,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // WELCOME TABS SWITCHING
   const welcomeTabSettings = document.getElementById("welcome-tab-settings");
-  const welcomeTabAi = document.getElementById("welcome-tab-ai");
   const welcomeTabBookmarks = document.getElementById("welcome-tab-bookmarks");
   const welcomeTabAnalytics = document.getElementById("welcome-tab-analytics");
   const welcomePanelSettings = document.getElementById("welcome-panel-settings");
-  const welcomePanelAi = document.getElementById("welcome-panel-ai");
   const welcomePanelBookmarks = document.getElementById("welcome-panel-bookmarks");
   const welcomePanelAnalytics = document.getElementById("welcome-panel-analytics");
   
-  const allWelcomeTabs = [welcomeTabSettings, welcomeTabAi, welcomeTabBookmarks, welcomeTabAnalytics].filter(Boolean);
-  const allWelcomePanels = [welcomePanelSettings, welcomePanelAi, welcomePanelBookmarks, welcomePanelAnalytics].filter(Boolean);
+  const allWelcomeTabs = [welcomeTabSettings, welcomeTabBookmarks, welcomeTabAnalytics].filter(Boolean);
+  const allWelcomePanels = [welcomePanelSettings, welcomePanelBookmarks, welcomePanelAnalytics].filter(Boolean);
 
   function switchWelcomeTab(activeTab, activePanel) {
     allWelcomeTabs.forEach(t => t.classList.remove("active"));
@@ -166,7 +164,6 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   if (welcomeTabSettings) welcomeTabSettings.addEventListener("click", () => switchWelcomeTab(welcomeTabSettings, welcomePanelSettings));
-  if (welcomeTabAi) welcomeTabAi.addEventListener("click", () => switchWelcomeTab(welcomeTabAi, welcomePanelAi));
   if (welcomeTabBookmarks) welcomeTabBookmarks.addEventListener("click", () => switchWelcomeTab(welcomeTabBookmarks, welcomePanelBookmarks));
   if (welcomeTabAnalytics) welcomeTabAnalytics.addEventListener("click", () => switchWelcomeTab(welcomeTabAnalytics, welcomePanelAnalytics));
 
@@ -234,142 +231,7 @@ document.addEventListener("DOMContentLoaded", () => {
     welcomeTabBookmarks.textContent = `Bookmarks (${state.bookmarks.length})`;
   }
 
-  // API KEY PASSWORD SHOW/HIDE
-  const aiApiKey = document.getElementById("ai-api-key");
-  const btnToggleApiKey = document.getElementById("btn-toggle-api-key");
-  
-  if (aiApiKey && btnToggleApiKey) {
-    // Load saved API Key on startup if it exists
-    if (localStorage.getItem("cbeh_gemini_api_key")) {
-      aiApiKey.value = localStorage.getItem("cbeh_gemini_api_key");
-    }
-    
-    btnToggleApiKey.addEventListener("click", () => {
-      if (aiApiKey.type === "password") {
-        aiApiKey.type = "text";
-        btnToggleApiKey.querySelector("svg").style.color = "var(--color-primary)";
-      } else {
-        aiApiKey.type = "password";
-        btnToggleApiKey.querySelector("svg").style.color = "var(--text-muted)";
-      }
-    });
-  }
 
-  // GENERATE AI SIMULATION EVENT
-  const btnGenerateAi = document.getElementById("btn-generate-ai");
-  const aiLoadingOverlay = document.getElementById("ai-loading-overlay");
-  const aiLoadingStatus = document.getElementById("ai-loading-status");
-  const aiProgressBar = document.getElementById("ai-progress-bar");
-  const aiGenType = document.getElementById("ai-gen-type");
-  const aiFocusTopic = document.getElementById("ai-focus-topic");
-  const btnCancelAiGeneration = document.getElementById("btn-cancel-ai-generation");
-  
-  if (btnCancelAiGeneration) {
-    btnCancelAiGeneration.addEventListener("click", () => {
-      if (aiGenerationAbortController) {
-        aiGenerationAbortController.abort();
-        aiGenerationAbortController = null;
-        aiLoadingStatus.textContent = "Cancelling generation...";
-      }
-    });
-  }
-  
-  if (btnGenerateAi) {
-    btnGenerateAi.addEventListener("click", async () => {
-      const key = aiApiKey.value.trim();
-      if (!key) {
-        alert("Please enter a valid Gemini API Key.");
-        return;
-      }
-      
-      // Save key in local storage
-      localStorage.setItem("cbeh_gemini_api_key", key);
-      
-      const genType = aiGenType.value; // mini, medium, full
-      const focusTopic = aiFocusTopic.value.trim();
-      
-      // Open loader screen inside panel and instantiate abort controller
-      aiGenerationAbortController = new AbortController();
-      aiLoadingOverlay.classList.add("active");
-      aiProgressBar.style.width = "0%";
-      
-      try {
-        let questions = [];
-        if (genType === "mini") {
-          aiLoadingStatus.textContent = "Generating 10-question quiz...";
-          aiProgressBar.style.width = "20%";
-          questions = await generateAiQuestionsBatch(key, 10, focusTopic, 1);
-          aiProgressBar.style.width = "80%";
-          state.questionsPool.push(...questions);
-          state.uploadedSimulationsCount++;
-          addLogEntry(`AI successfully generated 10 questions on: ${focusTopic || "General Syllabus"}`);
-        } else if (genType === "medium") {
-          aiLoadingStatus.textContent = "Generating 35-question exam...";
-          aiProgressBar.style.width = "20%";
-          questions = await generateAiQuestionsBatch(key, 35, focusTopic, 1);
-          aiProgressBar.style.width = "80%";
-          state.questionsPool.push(...questions);
-          state.uploadedSimulationsCount++;
-          addLogEntry(`AI successfully generated 35 questions on: ${focusTopic || "General Syllabus"}`);
-        } else if (genType === "full") {
-          aiLoadingStatus.textContent = "Generating Full Exam - Batch 1 of 2 (35 questions)...";
-          aiProgressBar.style.width = "10%";
-          const batch1 = await generateAiQuestionsBatch(key, 35, focusTopic, 1);
-          
-          // Check for abort between batches
-          if (!aiGenerationAbortController) return;
-          
-          aiProgressBar.style.width = "50%";
-          aiLoadingStatus.textContent = "Generating Full Exam - Batch 2 of 2 (35 questions)...";
-          const batch2 = await generateAiQuestionsBatch(key, 35, focusTopic, 2);
-          aiProgressBar.style.width = "90%";
-          
-          questions = [...batch1, ...batch2];
-          state.questionsPool.push(...questions);
-          state.uploadedSimulationsCount++;
-          addLogEntry(`AI successfully generated 70 questions on: ${focusTopic || "General Syllabus"}`);
-        }
-        
-        // Tag with AI source description and clean display IDs
-        const aiSource = `AI Generated: ${focusTopic || "General Syllabus"} (${new Date().toLocaleDateString()})`;
-        questions.forEach((q, idx) => {
-          q.id = idx + 1;
-          q.sourceFilename = aiSource;
-        });
-
-        // Recalculate stats and save
-        updateUploadedSimulationsCount();
-        saveAppState();
-        updateSimulationsManagerUI();
-        
-        // Update welcome screen stats UI
-        poolStatusCount.textContent = state.questionsPool.length;
-        poolStatusSims.textContent = state.uploadedSimulationsCount;
-        
-        aiProgressBar.style.width = "100%";
-        aiLoadingStatus.textContent = "Success! Launching simulation...";
-        setTimeout(() => {
-          aiLoadingOverlay.classList.remove("active");
-          // Directly start the exam with these AI generated questions!
-          state.examMode = "AI Generation";
-          startExamWithQuestions(questions);
-        }, 1000);
-        
-      } catch (err) {
-        if (err.name === "AbortError" || err.message === "The user aborted a request.") {
-          console.log("AI Generation aborted by user.");
-          addLogEntry("AI Generation cancelled by user.");
-        } else {
-          console.error(err);
-          alert(`AI Generation Failed: ${err.message}`);
-          addLogEntry(`AI Generation Error: ${err.message}`, true);
-        }
-        aiLoadingOverlay.classList.remove("active");
-      } finally {
-        aiGenerationAbortController = null;
-      }
-    });
-  }
 
   const btnLoadDefault = document.getElementById("btn-load-default");
   if (btnLoadDefault) {
@@ -2161,188 +2023,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // --- GEMINI AI MODEL DISCOVERY ---
-  async function discoverAvailableModel(apiKey) {
-    const urls = [
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`
-    ];
-    
-    for (let url of urls) {
-      try {
-        const response = await fetch(url);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.models) {
-            const names = data.models
-              .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-              .map(m => m.name.replace(/^models\//, ""));
-            
-            console.log("Discovered models available on key:", names);
-            
-            // Prioritize only stable and preview Flash models for quick, free-tier generation
-            const priority = [
-              "gemini-3.6-flash",
-              "gemini-3.5-flash",
-              "gemini-3.0-flash",
-              "gemini-3.1-flash-preview",
-              "gemini-3.0-flash-preview",
-              "gemini-2.6-flash",
-              "gemini-2.5-flash",
-              "gemini-1.5-flash"
-            ];
-            
-            for (let target of priority) {
-              if (names.includes(target)) {
-                const apiVer = url.includes("/v1beta/") ? "v1beta" : "v1";
-                return { model: target, apiVer: apiVer };
-              }
-            }
-            
-            // Fallback to any model found
-            if (names.length > 0) {
-              const apiVer = url.includes("/v1beta/") ? "v1beta" : "v1";
-              return { model: names[0], apiVer: apiVer };
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Error discovering models:", e);
-      }
-    }
-    
-    // Default fallback if discovery fails completely
-    return { model: "gemini-3.6-flash", apiVer: "v1beta" };
-  }
 
-  // --- GEMINI AI QUESTION BATCH GENERATOR ---
-  async function generateAiQuestionsBatch(apiKey, count, focusTopic, batchNumber = 1) {
-    const discovery = await discoverAvailableModel(apiKey);
-    console.log(`Routing query to model: ${discovery.model} using API version: ${discovery.apiVer}`);
-    
-    // Distribute question counts based on total requested
-    let cellBioCount = 0;
-    let histologyCount = 0;
-    let embryologyCount = 0;
-    let interdisciplinaryCount = 0;
-    let openCount = 0;
-    
-    if (count === 10) {
-      cellBioCount = 4;
-      histologyCount = 3;
-      embryologyCount = 2;
-      interdisciplinaryCount = 1;
-      openCount = 2;
-    } else if (count === 35) {
-      cellBioCount = 15;
-      histologyCount = 12;
-      embryologyCount = 6;
-      interdisciplinaryCount = 2;
-      openCount = 8;
-    }
-    
-    const focusStr = focusTopic ? `Focus particularly on the following custom area: "${focusTopic}".` : "";
-    const batchStr = count === 35 && batchNumber ? ` (This is batch ${batchNumber} of 2. Make sure you generate a diverse and unique set of questions.)` : "";
-
-    const promptText = `
-You are a professor setting up a CBEH (Cell Biology, Histology, Embryology, and Interdisciplinary) exam mock simulation.
-Please generate exactly ${count} mock exam questions conforming to the official syllabus and the exact structure specified below.
-
-### DISTRIBUTION REQUIREMENT:
-Generate:
-- Exactly ${cellBioCount} Cell Biology questions
-- Exactly ${histologyCount} Histology questions
-- Exactly ${embryologyCount} Embryology questions
-- Exactly ${interdisciplinaryCount} Interdisciplinary questions
-- Out of these ${count} questions, exactly ${openCount} questions MUST be of type "open" (open questions requiring a short text box explanation).
-
-${focusStr}
-${batchStr}
-
-### DETAILED SYLLABUS TOPICS:
-- Cell Biology: Structure/function of cells, membranes, transport (Na+/K+ pump), cytoskeleton, nucleus, protein structure, DNA/chromatin compaction, replication, transcription, RNA splicing (introns/exons, spliceosome), translation/ribosomes, folding, sorting/secretory pathway, cell signaling (GPCR, RTK), cell cycle regulation (G1/S transition, checkpoints, Rb phosphorylation), mitosis, meiosis, genetics/Mendelian laws, cytogenetics, mutation/polymorphism, oncogenes/tumor suppressors, apoptosis, viruses, stem cells, gene editing (CRISPR-Cas9).
-- Histology: Methods, staining, epithelial cell junctions (tight/zonula occludens, anchoring, gap), lining epithelia, exocrine/endocrine glands, proper connective tissue, cartilage, bone/osteogenesis, blood/haemopoiesis, lymphoid organs, muscle tissue (skeletal, cardiac, smooth), nervous tissue (neurons, fibers, synapses, neuroglia, blood-brain barrier).
-- Embryology: Gametogenesis, hormonal control, fertilization, cleavage/blastocyst, implantation, gastrulation (trilaminar disc, ectoderm/mesoderm/endoderm fates), folding (gut tube formation), maternal-fetal relationship (placental barrier layers), digestive system development, nervous system development (neurulation, neural tube closure).
-- Interdisciplinary: Questions linking multiple categories (e.g. cellular organelles, tissues, and embryonic development).
-
-### QUESTION FORMAT CONSTRAINTS:
-1. "multiple-choice":
-   - Options array must contain exactly 5 options starting with prefix "A. ", "B. ", "C. ", "D. ", "E. ".
-   - correctAnswer must be a single uppercase letter: "A", "B", "C", "D", or "E".
-2. "true-false":
-   - Options array must be exactly ["True", "False"].
-   - correctAnswer must be either "True" or "False".
-3. "fill-in-the-gap":
-   - Options array must contain exactly 4 options.
-   - The question text must contain a "________" blank placeholder.
-   - correctAnswer must be a string matching one of the options.
-4. "matching":
-   - leftItems array must contain 4 concepts starting with "1. ", "2. ", "3. ", "4. ".
-   - rightItems array must contain 4 descriptions starting with "A. ", "B. ", "C. ", "D. ".
-   - correctAnswers mapping maps left index (0-3) to right index (0-3), e.g. { "0": 3, "1": 1, "2": 2, "3": 0 } for 1-D, 2-B, 3-C, 4-A.
-5. "open":
-   - Must have a modelAnswer string (approx. 50-100 words).
-6. "true-false-cluster":
-   - statements array must contain 4 statements, each with id ("A", "B", "C", "D"), text (starting with "A) ", "B) ", etc.), and correctAnswer ("True" or "False").
-
-Respond strictly with a JSON array. Each question object must look like one of the following formats:
-- Multiple choice: {"type":"multiple-choice","module":"Cell Biology","question":"...","options":["A. ...","B. ...","C. ...","D. ...","E. ..."],"correctAnswer":"A","explanation":"..."}
-- True/False: {"type":"true-false","module":"Histology","question":"...","options":["True","False"],"correctAnswer":"True","explanation":"..."}
-- Fill in the gap: {"type":"fill-in-the-gap","module":"Cell Biology","question":"The enzyme ________ is responsible...","options":["DNA Polymerase","RNA Polymerase","Helicase","Ligase"],"correctAnswer":"DNA Polymerase","explanation":"..."}
-- Matching: {"type":"matching","module":"Histology","question":"Match...","leftItems":["1. X","2. Y","3. Z","4. W"],"rightItems":["A. ...","B. ...","C. ...","D. ..."],"correctAnswers":{"0":3,"1":1,"2":2,"3":0},"explanation":"..."}
-- Open Question: {"type":"open","module":"Embryology","question":"...","modelAnswer":"...","explanation":"..."}
-- True/False Cluster: {"type":"true-false-cluster","module":"Cell Biology","question":"Evaluate...","statements":[{"id":"A","text":"Statement A","correctAnswer":"True"},{"id":"B","text":"Statement B","correctAnswer":"False"},{"id":"C","text":"Statement C","correctAnswer":"True"},{"id":"D","text":"Statement D","correctAnswer":"False"}],"explanation":"..."}
-Do not add markdown fences or other text. Return ONLY the raw JSON array.
-`;
-
-    const requestBody = {
-      contents: [{ parts: [{ text: promptText }] }],
-      generationConfig: {
-        responseMimeType: "application/json"
-      }
-    };
-
-    const url = `https://generativelanguage.googleapis.com/${discovery.apiVer}/models/${discovery.model}:generateContent?key=${apiKey}`;
-    const fetchOptions = {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestBody)
-    };
-    if (aiGenerationAbortController) {
-      fetchOptions.signal = aiGenerationAbortController.signal;
-    }
-    
-    const response = await fetch(url, fetchOptions);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let errMsg = `API call failed for ${discovery.model} (${discovery.apiVer})`;
-      try {
-        const errJson = JSON.parse(errText);
-        errMsg = errJson.error.message;
-      } catch (e) {}
-      throw new Error(errMsg);
-    }
-
-    const data = await response.json();
-    const resultText = data.candidates[0].content.parts[0].text;
-    
-    // Parse the JSON array
-    const questions = JSON.parse(resultText);
-    
-    // Clean and validate formats
-    questions.forEach(q => {
-      if (q.type === "true-false") {
-        q.options = ["True", "False"];
-      }
-      if (q.type === "fill-in-the-gap" && (!q.options || q.options.length === 0)) {
-        q.options = [q.correctAnswer, "Ribosome", "Nucleus", "Mitochondrion"];
-        shuffleArray(q.options);
-      }
-    });
-
-    return questions;
-  }
   function updateUploadedSimulationsCount() {
     const sources = new Set();
     state.questionsPool.forEach(q => {
