@@ -144,6 +144,17 @@ body.light-theme .scrollbar-styled::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.15) !important;
 }
 
+body.light-theme #practice-mode-select,
+body.light-theme #btn-cancel-ai-generation {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
+body.light-theme #practice-mode-select option {
+  background: #ffffff !important;
+  color: #1e293b !important;
+}
+
 
 /* --- THEME SWITCHER COMPONENT --- */
 .theme-switcher {
