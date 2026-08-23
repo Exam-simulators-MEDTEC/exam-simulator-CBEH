@@ -2063,9 +2063,15 @@ document.addEventListener("DOMContentLoaded", () => {
               }
             }
           } else if (q.type === "true-false") {
-            const isTrue = ansContent.toLowerCase().startsWith("true");
-            q.correctAnswer = isTrue ? "True" : "False";
-            q.explanation = ansContent.substring(isTrue ? 4 : 5).replace(/[\(\)]/g, "").trim() || "No explanation provided.";
+            const tfMatch = ansContent.match(/^(True|False)[\.\)\s\:\-]\s*(.*)/i) || ansContent.match(/^(True|False)$/i);
+            if (tfMatch) {
+              q.correctAnswer = tfMatch[1].toLowerCase() === "true" ? "True" : "False";
+              q.explanation = tfMatch[2] ? tfMatch[2].replace(/[\(\)]/g, "").trim() : "No explanation provided.";
+            } else {
+              const isTrue = ansContent.toLowerCase().startsWith("true");
+              q.correctAnswer = isTrue ? "True" : "False";
+              q.explanation = ansContent;
+            }
           } else if (q.type === "fill-in-the-gap") {
             q.correctAnswer = ansContent;
             q.explanation = "Fill in the correct term to complete the gap.";
@@ -2657,7 +2663,7 @@ document.addEventListener("DOMContentLoaded", () => {
       optsContainer.className = "db-question-options";
       q.statements.forEach(s => {
         const stmtDiv = document.createElement("div");
-        stmtDiv.textContent = `${s.id}) ${s.text} [Answer: ${s.correctAnswer || 'N/A'}]`;
+        stmtDiv.textContent = `${s.id}) ${s.text}`;
         optsContainer.appendChild(stmtDiv);
       });
       item.appendChild(optsContainer);
