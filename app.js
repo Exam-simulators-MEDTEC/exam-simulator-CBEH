@@ -1723,7 +1723,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       // Detect question start: "ID. TYPE:" (supports optional parentheses and extra labels)
-      const qMatch = line.match(/^(\d+)\.\s*\(?\s*(Multiple Choice|True or False|Open Question|Fill in the gap|Matching|True or False Cluster)(?:[^)]*)?\)?:?\s*(.*)/i);
+      const qMatch = line.match(/^(\d+)\.\s*\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?:?\s*(.*)/i);
       
       if (qMatch) {
         if (currentQuestion) {
