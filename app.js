@@ -48,10 +48,77 @@ document.addEventListener("DOMContentLoaded", () => {
         switchScreen("screen-exam");
       } catch (e) {
         console.error("Error restoring saved simulation:", e);
-        alert("Failed to restore saved simulation progress.\n\nError: " + e.message + "\n\nStack: " + e.stack);
+        customAlert("Failed to restore saved simulation progress.\n\nError: " + e.message);
         localStorage.removeItem("cbeh_saved_simulation");
         updateResumeButtonUI();
       }
+    });
+  }
+
+  // ==========================================
+  // CUSTOM DIALOG MODAL SYSTEM
+  // ==========================================
+  const modalOverlay = document.getElementById("custom-modal-overlay");
+  const modalMessage = document.getElementById("custom-modal-message");
+  const modalBtnCancel = document.getElementById("custom-modal-btn-cancel");
+  const modalBtnConfirm = document.getElementById("custom-modal-btn-confirm");
+
+  function showCustomModal({ message, isConfirm, confirmLabel = "Confirm", cancelLabel = "Cancel", onConfirm, onCancel }) {
+    if (!modalOverlay) return;
+    
+    modalMessage.textContent = message;
+    modalBtnConfirm.textContent = confirmLabel;
+    
+    if (isConfirm) {
+      modalBtnCancel.style.display = "inline-flex";
+      modalBtnCancel.textContent = cancelLabel;
+    } else {
+      modalBtnCancel.style.display = "none";
+    }
+    
+    const newConfirm = modalBtnConfirm.cloneNode(true);
+    const newCancel = modalBtnCancel.cloneNode(true);
+    
+    modalBtnConfirm.parentNode.replaceChild(newConfirm, modalBtnConfirm);
+    modalBtnCancel.parentNode.replaceChild(newCancel, modalBtnCancel);
+    
+    const activeConfirm = document.getElementById("custom-modal-btn-confirm");
+    const activeCancel = document.getElementById("custom-modal-btn-cancel");
+    
+    activeConfirm.addEventListener("click", () => {
+      modalOverlay.classList.remove("active");
+      if (onConfirm) onConfirm();
+    });
+    
+    activeCancel.addEventListener("click", () => {
+      modalOverlay.classList.remove("active");
+      if (onCancel) onCancel();
+    });
+    
+    modalOverlay.classList.add("active");
+  }
+
+  function customAlert(message) {
+    return new Promise(resolve => {
+      showCustomModal({
+        message,
+        isConfirm: false,
+        confirmLabel: "OK",
+        onConfirm: resolve
+      });
+    });
+  }
+
+  function customConfirm(message, confirmLabel = "Confirm", cancelLabel = "Cancel") {
+    return new Promise(resolve => {
+      showCustomModal({
+        message,
+        isConfirm: true,
+        confirmLabel,
+        cancelLabel,
+        onConfirm: () => resolve(true),
+        onCancel: () => resolve(false)
+      });
     });
   }
 
@@ -267,10 +334,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const btnLoadDefault = document.getElementById("btn-load-default");
   if (btnLoadDefault) {
-    btnLoadDefault.addEventListener("click", () => {
+    btnLoadDefault.addEventListener("click", async () => {
       const alreadyLoaded = state.questionsPool.some(q => (q.sourceFilename || "Official Syllabus Mock Exam") === "Official Syllabus Mock Exam");
       if (alreadyLoaded) {
-        alert("The default mock exam is already loaded in the pool!");
+        await customAlert("The default mock exam is already loaded in the pool!");
         return;
       }
       
@@ -294,8 +361,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const btnResetPool = document.getElementById("btn-reset-pool");
   if (btnResetPool) {
-    btnResetPool.addEventListener("click", () => {
-      const confirmReset = confirm("Are you sure you want to clear all simulation files from the pool?\nThis will permanently delete all uploaded files and AI generated questions.");
+    btnResetPool.addEventListener("click", async () => {
+      const confirmReset = await customConfirm("Are you sure you want to clear all simulation files from the pool?\nThis will permanently delete all uploaded files and AI generated questions.", "Clear Pool", "Cancel");
       if (confirmReset) {
         state.questionsPool = [];
         state.uploadedSimulationsCount = 0;
@@ -317,7 +384,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // START SIMULATION
-  btnStartExam.addEventListener("click", () => {
+  btnStartExam.addEventListener("click", async () => {
     const modeSelect = document.getElementById("practice-mode-select");
     const mode = modeSelect ? modeSelect.value : "standard";
     
@@ -327,7 +394,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (mode === "standard") {
       state.examMode = "Full Simulation";
-      startExam();
+      await startExam();
     } else {
       let targetModule = "";
       if (mode === "cell-biology") {
@@ -346,7 +413,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const filtered = state.questionsPool.filter(q => q.module === targetModule);
       if (filtered.length === 0) {
-        alert(`No questions found in the pool for module "${targetModule}". Please upload a simulation or generate AI questions for this topic first!`);
+        await customAlert(`No questions found in the pool for module "${targetModule}". Please upload a simulation or generate AI questions for this topic first!`);
         return;
       }
       
@@ -407,14 +474,15 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // SUBMIT EXAM
-  btnSubmitExam.addEventListener("click", () => {
+  btnSubmitExam.addEventListener("click", async () => {
     const unansweredCount = state.questions.length - Object.keys(state.answers).length;
     let message = "Are you sure you want to submit the exam?";
     if (unansweredCount > 0) {
       message += ` You have ${unansweredCount} unanswered questions. Unanswered questions will be scored as 0 points.`;
     }
     
-    if (confirm(message)) {
+    const confirmSubmit = await customConfirm(message, "Submit Exam", "Cancel");
+    if (confirmSubmit) {
       submitExam();
     }
   });
@@ -425,9 +493,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   if (btnHomeExam) {
-    btnHomeExam.addEventListener("click", () => {
-      if (confirm("Are you sure you want to exit the ongoing simulation?")) {
-        const saveProgress = confirm("Would you like to save your progress? (This will let you resume it later)");
+    btnHomeExam.addEventListener("click", async () => {
+      const confirmExit = await customConfirm("Are you sure you want to exit the ongoing simulation?", "Exit Exam", "Stay");
+      if (confirmExit) {
+        const saveProgress = await customConfirm("Would you like to save your progress?\n(This will let you resume it later)", "Save Progress", "Abandon Progress");
         if (saveProgress) {
           saveCurrentSimulationProgress();
         } else {
@@ -461,9 +530,9 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // CORE FUNCTIONS
-  function startExam() {
+  async function startExam() {
     if (state.questionsPool.length === 0) {
-      alert("Your simulation pool is currently empty! Please upload a PDF, Markdown, or Plain Text simulation file (or generate questions with AI) first.");
+      await customAlert("Your simulation pool is currently empty! Please upload a PDF, Markdown, or Plain Text simulation file (or generate questions with AI) first.");
       return;
     }
     const compiled = generateRandomSimulation();
@@ -2178,8 +2247,8 @@ document.addEventListener("DOMContentLoaded", () => {
         btnRemove.style.background = "rgba(239, 68, 68, 0.1)";
       });
       
-      btnRemove.addEventListener("click", () => {
-        const confirmRemove = confirm(`Are you sure you want to remove all questions from "${sourceName}"?\nThis will delete ${count} questions from your pool.`);
+      btnRemove.addEventListener("click", async () => {
+        const confirmRemove = await customConfirm(`Are you sure you want to remove all questions from "${sourceName}"?\nThis will delete ${count} questions from your pool.`, "Remove File", "Cancel");
         if (confirmRemove) {
           // Delete questions from pool
           state.questionsPool = state.questionsPool.filter(q => (q.sourceFilename || "Unknown Upload") !== sourceName);
@@ -2187,7 +2256,7 @@ document.addEventListener("DOMContentLoaded", () => {
           // If the user has an active quiz containing deleted questions, return to home
           const hasDeletedQuestionsInExam = state.questions.some(q => (q.sourceFilename || "Unknown Upload") === sourceName);
           if (hasDeletedQuestionsInExam) {
-            alert("The active simulation contained questions from the removed file. Returning to Welcome screen.");
+            await customAlert("The active simulation contained questions from the removed file. Returning to Welcome screen.");
             resetExam();
           }
           
@@ -2417,8 +2486,8 @@ document.addEventListener("DOMContentLoaded", () => {
   // Analytics Reset Trigger
   const btnResetAnalytics = document.getElementById("btn-reset-analytics");
   if (btnResetAnalytics) {
-    btnResetAnalytics.addEventListener("click", () => {
-      const confirmReset = confirm("Are you sure you want to delete all your exam statistics and history? This cannot be undone.");
+    btnResetAnalytics.addEventListener("click", async () => {
+      const confirmReset = await customConfirm("Are you sure you want to delete all your exam statistics and history? This cannot be undone.", "Reset History", "Cancel");
       if (confirmReset) {
         state.history = [];
         localStorage.removeItem("cbeh_history");

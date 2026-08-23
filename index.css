@@ -1726,3 +1726,82 @@ h1, h2, h3, h4, h5 {
     width: 100%;
   }
 }
+
+/* --- CUSTOM MODAL SYSTEM --- */
+.custom-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(11, 26, 20, 0.7); /* Match dark green theme main background */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.custom-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.custom-modal-card {
+  width: 90%;
+  max-width: 440px;
+  padding: 2.25rem 2rem;
+  text-align: center;
+  background: rgba(20, 44, 34, 0.8) !important; /* Premium dark emerald glass */
+  border: 1px solid var(--border-color) !important;
+  border-radius: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+  transform: scale(0.9);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.custom-modal-overlay.active .custom-modal-card {
+  transform: scale(1);
+}
+
+.custom-modal-icon {
+  margin: 0 auto 1.25rem auto;
+  width: 56px;
+  height: 56px;
+  background: rgba(0, 212, 122, 0.1);
+  color: var(--color-primary);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 0 20px rgba(0, 212, 122, 0.05);
+}
+
+.custom-modal-message {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: #ffffff;
+  margin-bottom: 1.75rem;
+  font-weight: 500;
+  white-space: pre-line;
+}
+
+.custom-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+.custom-modal-actions button {
+  min-width: 120px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  padding: 0.65rem 1.25rem;
+  margin: 0 !important;
+}

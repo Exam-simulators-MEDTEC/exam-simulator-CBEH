@@ -401,7 +401,25 @@
 
   </main>
 
+  <!-- Custom Modal Overlay -->
+  <div id="custom-modal-overlay" class="custom-modal-overlay">
+    <div class="custom-modal-card glass">
+      <div class="custom-modal-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="28" height="28">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <p id="custom-modal-message" class="custom-modal-message">Modal Message</p>
+      <div class="custom-modal-actions">
+        <button id="custom-modal-btn-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="custom-modal-btn-confirm" class="btn btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
   <script src="questions.js"></script>
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
