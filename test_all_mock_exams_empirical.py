@@ -38,6 +38,20 @@ def parse_cmap(cmap_stream):
     return cmap
 
 def extract_pdf_text(filepath):
+    try:
+        cmd = ["osascript", "-l", "JavaScript", "-e", f"""
+        ObjC.import("PDFKit");
+        ObjC.import("Foundation");
+        const doc = $.PDFDocument.alloc.initWithURL($.NSURL.fileURLWithPath("{filepath}"));
+        const text = doc ? ObjC.unwrap(doc.string) : "";
+        $.NSFileHandle.fileHandleWithStandardOutput.writeData($(text).dataUsingEncoding($.NSUTF8StringEncoding));
+        """]
+        res = subprocess.run(cmd, capture_output=True, text=True)
+        if res.returncode == 0 and len(res.stdout) > 0:
+            return res.stdout
+    except Exception:
+        pass
+
     with open(filepath, 'rb') as f:
         data = f.read()
     cmaps = {}

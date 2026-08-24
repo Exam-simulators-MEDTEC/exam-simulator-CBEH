@@ -160,7 +160,8 @@ document.addEventListener("DOMContentLoaded", () => {
     timerInterval: null,
     selfGradedScores: {}, // Maps open question ID to 1 or 0 (defaults to 0)
     isExamSubmitted: false,
-    examMode: "Full Simulation" // Default exam mode
+    examMode: "Full Simulation", // Default exam mode
+    reviewPagination: {} // Maps listContainerId to boolean (expanded/collapsed)
   };
 
 
@@ -631,6 +632,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.answers = {};
     state.flags = {};
     state.selfGradedScores = {};
+    state.reviewPagination = {};
     
     // Scale timer dynamically based on question count
     if (questionsList.length <= 10) {
@@ -2127,8 +2129,9 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof text !== "string") return text;
     let s = text.trim();
     
-    // 1. Strip leading section dividers (e.g. ===, ---, ___, ***) - line-anchored to preserve inline blanks
-    s = s.replace(/^(?:[=\-\_\*]{3,}\s*)+/, "");
+    // 1. Strip leading section dividers (e.g. ===, ---, ***, and ___ before numbers) - preserving fill-in gap blanks
+    s = s.replace(/^(?:[=\-\*]{3,}\s*)+/, "");
+    s = s.replace(/^(?:[=\-\_\*]{3,}\s*)+(?=(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)])/, "");
     
     // 2. Strip leaked module/part/section headers and topic lines
     s = s.replace(/^(?:MODULE|PART|SECTION)\s*(?:\d+|[IVX]+)[\:\s\-–—]*(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)?(?:\s*\(\d+\s*Questions\))?[\:\s\-–—]*/gi, "");
@@ -2138,12 +2141,12 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // 3. Strip redundant question numbers and types at start of prompt if present
     s = s.replace(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)]\s*/, "");
-    s = s.replace(/^\(?\s*(?:Multiple Choice|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*/i, "");
+    s = s.replace(/^(?:\((?:Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)[^)]*\)|(?:Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching))\:?\s*/i, "");
     
-    // 4. Strip leading punctuation / symbols / bullets / brackets & conjunctions
+    // 4. Strip leading punctuation / symbols / bullets / brackets & conjunctions (preserving underline blanks `________`)
     while (true) {
       const prev = s;
-      s = s.replace(/^[\:\.\,\-\–—\_\*\•\#\>\~\]\)\/\s=]+/, "").trim();
+      s = s.replace(/^[\:\.\,\-\–—\*\•\#\>\~\]\)\/\s=]+/, "").trim();
       s = s.replace(/^(?:and|or|but|also|as well as|&)(?:\s+|$)/i, "").trim();
       if (s === prev) break;
     }
@@ -2161,7 +2164,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Strip leading chained prepositions (e.g. "with in for of by..." or "with in the endoplasmic...")
         while (true) {
           const prev = s;
-          s = s.replace(/^[\:\.\,\-\–—\_\*\•\#\>\~\]\)\/\s=]+/, "").trim();
+          s = s.replace(/^[\:\.\,\-\–—\*\•\#\>\~\]\)\/\s=]+/, "").trim();
           const chainMatch = s.match(/^(?:(?:with|in|to|for|of|by|at|on|from|that|which|whereas|while|because|the|a|an)\s+){2,}/);
           if (chainMatch) {
             s = s.substring(chainMatch[0].length).trim();
@@ -2282,25 +2285,27 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Detect question start: "ID. TYPE:" or "ID. Prompt"
-      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
+      // Detect question start: "ID. (TYPE)" or "ID. TYPE:" or "ID. Prompt"
+      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?(\d+)[\.\)]\s*(?:\((Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)[^)]*\)|(Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)\:?)?\s*(.*)/i);
       
       if (qMatch && qMatch[1]) {
         const id = parseInt(qMatch[1], 10);
-        const typeStr = (qMatch[2] || "").toLowerCase();
-        const promptText = qMatch[3] || "";
+        const typeStr = (qMatch[2] || qMatch[3] || "").toLowerCase();
+        const rawPrompt = qMatch[4] || "";
+        const promptText = rawPrompt.replace(/^[\:\s\-–—]+/, "").trim();
+        const hasTypeTag = !!(qMatch[2] || qMatch[3]);
         
         // If we are currently inside a matching question and haven't collected 4 left items yet,
         // any numbered line without an explicit question type tag is a left item, NOT a new question.
         let isNewQ = false;
         if (currentQuestion && currentQuestion.type === "matching" && currentQuestion.leftItems.length < 4) {
-          if (qMatch[2]) {
+          if (hasTypeTag) {
             isNewQ = true;
           } else {
             isNewQ = false;
           }
         } else {
-          isNewQ = qMatch[2] || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || id === (currentQuestion.id + 1);
+          isNewQ = hasTypeTag || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || id === (currentQuestion.id + 1);
         }
 
         if (isNewQ) {
@@ -2380,10 +2385,19 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     if (currentQuestion) {
+      sanitizeQuestion(currentQuestion);
       parsedQuestions.push(currentQuestion);
     }
+
+    // If exactly 70 questions are parsed (standard mock simulation), ensure contiguous IDs 1..70
+    if (parsedQuestions.length === 70) {
+      parsedQuestions.forEach((q, idx) => {
+        q.id = idx + 1;
+        q.module = getModuleFromQuestionId(q.id);
+      });
+    }
     
-    // Clean strings and check for inline multiple-choice options
+    // Clean strings and check for inline options or cluster statements
     parsedQuestions.forEach(q => {
       q.question = q.question.replace(/\s+/g, " ").trim();
       
@@ -2408,6 +2422,22 @@ document.addEventListener("DOMContentLoaded", () => {
             q.options = tempOptions;
           }
         }
+      } else if (q.type === "true-false-cluster" && q.statements.length === 0) {
+        // Regex to match inline cluster statements e.g. A) Statement1 B) Statement2 ...
+        const inlineRegex = /(?:^|\s)([A-D])[\)\.]\s+((?:(?!\s[A-D][\)\.]).)+)/gi;
+        const matches = [...q.question.matchAll(inlineRegex)];
+        if (matches.length >= 2) {
+          const firstStmtIndex = q.question.search(/(?:^|\s)[A-D][\)\.]\s+/i);
+          if (firstStmtIndex !== -1) {
+            const mainQuestion = q.question.substring(0, firstStmtIndex).trim();
+            q.question = mainQuestion;
+            q.statements = matches.map(m => ({
+              id: m[1].toUpperCase(),
+              text: cleanOptionPrefix(m[2].trim()),
+              correctAnswer: null
+            }));
+          }
+        }
       }
     });
     
@@ -2415,7 +2445,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentAnsId = -1;
     for (let j = 1; j < answerLines.length; j++) {
       const line = answerLines[j];
-      const ansMatch = line.match(/^(?:[\*\-\+]\s*)?(\d+)\.\s*(.*)/);
+      const ansMatch = line.match(/^(?:[\*\-\+]?\s*)?(\d+)\.\s*(.*)/);
       
       if (ansMatch) {
         currentAnsId = parseInt(ansMatch[1], 10);
@@ -2494,6 +2524,14 @@ document.addEventListener("DOMContentLoaded", () => {
             q.explanation = "Open question self-grading guide.";
           } else if (q.type === "true-false-cluster") {
             q.explanation = "Evaluate each statement as True or False.";
+            // Parse inline statements e.g. "A-True, B-False, C-True, D-True" or "A: True, B: False"
+            const inlineClusterMatches = [...ansContent.matchAll(/([A-D])\s*[\:\-\–—\)\.]\s*(True|False)/gi)];
+            for (let m of inlineClusterMatches) {
+              const letter = m[1].toUpperCase();
+              const val = m[2].toLowerCase() === "true" ? "True" : "False";
+              const stmt = q.statements.find(s => s.id === letter);
+              if (stmt) stmt.correctAnswer = val;
+            }
           }
         }
       } else if (currentAnsId !== -1) {
@@ -2502,7 +2540,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (q.type === "open") {
             q.modelAnswer += " " + line;
           } else if (q.type === "true-false-cluster") {
-            const clusterMatch = line.match(/^(?:[\*\-\+]\s*)?([A-D])[\)\.]\s*(True|False)/i);
+            const clusterMatch = line.match(/^(?:[o•\*\-\+\>\~]\s*)?([A-D])[\)\.]\s*(True|False)/i);
             if (clusterMatch) {
               const letter = clusterMatch[1].toUpperCase();
               const val = clusterMatch[2].toLowerCase() === "true" ? "True" : "False";

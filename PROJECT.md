@@ -10,10 +10,10 @@
 ## Feature Inventory
 | # | Feature | Description | Milestone | Source |
 |---|---------|-------------|-----------|--------|
-| 1 | Standard ID Range Module Fallback | Deterministically classify questions 1–30 Cell Biology, 31–54 Histology, 55–66 Embryology, 67–70 Interdisciplinary | M1 | ORIGINAL_REQUEST R1 |
-| 2 | Robust Header Detection | Parse `MODULE 4`, `MODULE IV`, `PART IV`, `INTERDISCIPLINARY`, and OCR variants without dropping question lines | M1 | ORIGINAL_REQUEST R1 |
-| 3 | Remove Prompt Keyword Overrides | Prevent `upperQ.includes("HISTOLOGY")` in `sanitizeQuestion` from misclassifying Interdisciplinary prompts | M1 | ORIGINAL_REQUEST R1 |
-| 4 | Safe Iterative Prompt Sanitization | Strip orphaned conjunctions and fragments (e.g. `70. and cellular energy...` -> `Cellular energy...`) while preserving `In the...` and `The...` | M1 | ORIGINAL_REQUEST R1 |
+| 1 | Standard ID Range Module Fallback | Deterministically classify questions 1–30 Cell Biology, 31–54 Histology, 55–66 Embryology, 67–70 Interdisciplinary | M1 | ORIGINAL_REQUEST R1 (DONE) |
+| 2 | Robust Header Detection | Parse `MODULE 4`, `MODULE IV`, `PART IV`, `INTERDISCIPLINARY`, and OCR variants without dropping question lines | M1 | ORIGINAL_REQUEST R1 (DONE) |
+| 3 | Remove Prompt Keyword Overrides | Prevent `upperQ.includes("HISTOLOGY")` in `sanitizeQuestion` from misclassifying Interdisciplinary prompts | M1 | ORIGINAL_REQUEST R1 (DONE) |
+| 4 | Safe Iterative Prompt Sanitization | Strip orphaned conjunctions and fragments (e.g. `70. and cellular energy...` -> `Cellular energy...`) while preserving `In the...` and `The...` | M1 | ORIGINAL_REQUEST R1 (DONE) |
 | 5 | Review Card Pagination Selector Fix | Fix class selector in `applyReviewListPagination` to include `.review-item-card` so auto-graded review tab paginates 3 preview cards | M2 | ORIGINAL_REQUEST R2 |
 | 6 | Compact Action Buttons Below Preview | Place "Show More Questions" and primary action buttons (Return Home, Retake Another Exam, Download Study Summary (PDF)) directly below the 3 preview cards | M2 | ORIGINAL_REQUEST R2 |
 | 7 | Seamless Toggle Interaction & State | Clicking "Show More Questions" smoothly expands all review cards; state persists across scoring recalculations | M2 | ORIGINAL_REQUEST R2 |
@@ -22,8 +22,8 @@
 ## Milestones
 | # | Name | Scope | Dependencies | Status |
 |---|------|-------|-------------|--------|
-| 1 | Parser & Prompt Sanitization | Refactor `parseMockExamText`, `sanitizeQuestion`, and `handleFilesUpload` in `app.js` | None | IN_PROGRESS |
-| 2 | Results Screen UI Pagination & Compact Actions | Fix `applyReviewListPagination`, update layout & styling in `app.js`, `index.html`, and `index.css` | M1 | PLANNED |
+| 1 | Parser & Prompt Sanitization | Refactor `parseMockExamText`, `sanitizeQuestion`, and `handleFilesUpload` in `app.js` | None | DONE |
+| 2 | Results Screen UI Pagination & Compact Actions | Fix `applyReviewListPagination`, update layout & styling in `app.js`, `index.html`, and `index.css` | M1 | IN_PROGRESS |
 | 3 | E2E Verification & Forensic Integrity Audit | Execute automated test runner, verify 28 Interdisciplinary questions across 7 sims, verify UI behavior, and run Forensic Integrity Audit | M1, M2 | PLANNED |
 
 ## Code Layout
