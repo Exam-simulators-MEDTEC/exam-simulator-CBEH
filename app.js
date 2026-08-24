@@ -1398,6 +1398,74 @@ document.addEventListener("DOMContentLoaded", () => {
       
       openQuestionsGradingList.appendChild(itemCard);
     });
+
+    applyReviewListPagination("open-questions-grading-list");
+  }
+
+  function applyReviewListPagination(listContainerId) {
+    const container = document.getElementById(listContainerId);
+    if (!container) return;
+    
+    // Remove old pagination controls if present
+    const oldControl = container.querySelector(".review-pagination-control");
+    if (oldControl) oldControl.remove();
+
+    const cards = Array.from(container.children).filter(child => 
+      child.classList.contains("question-card") || 
+      child.classList.contains("review-card") || 
+      child.classList.contains("grading-item-card")
+    );
+    
+    if (cards.length <= 3) return;
+
+    // Hide cards past index 2 (4th card onwards)
+    cards.forEach((card, idx) => {
+      if (idx >= 3) {
+        card.style.display = "none";
+      } else {
+        card.style.display = "flex";
+      }
+    });
+
+    const paginationBox = document.createElement("div");
+    paginationBox.className = "review-pagination-control";
+    paginationBox.style.cssText = "display: flex; flex-direction: column; align-items: center; gap: 0.75rem; margin: 1.5rem 0 1rem 0; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); border-radius: 12px;";
+
+    const remainingCount = cards.length - 3;
+    const btnShowMore = document.createElement("button");
+    btnShowMore.type = "button";
+    btnShowMore.className = "btn btn-primary";
+    btnShowMore.style.cssText = "display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.5rem 1.25rem; border-radius: 8px;";
+    btnShowMore.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="6 9 12 15 18 9"></polyline>
+      </svg>
+      <span>Show More Questions (${remainingCount} remaining)</span>
+    `;
+
+    let isExpanded = false;
+    btnShowMore.addEventListener("click", () => {
+      isExpanded = !isExpanded;
+      cards.forEach((card, idx) => {
+        if (idx >= 3) {
+          card.style.display = isExpanded ? "flex" : "none";
+        }
+      });
+      btnShowMore.innerHTML = isExpanded ? `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <polyline points="18 15 12 9 6 15"></polyline>
+        </svg>
+        <span>Show Fewer Questions</span>
+      ` : `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+        <span>Show More Questions (${remainingCount} remaining)</span>
+      `;
+    });
+
+    paginationBox.appendChild(btnShowMore);
+    container.appendChild(paginationBox);
   }
 
   function calculateScores() {
@@ -1584,6 +1652,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     saveActiveExamState();
+    applyReviewListPagination("auto-questions-review-list");
   }
 
   function updateModuleResultsUI(moduleScores) {
@@ -2047,9 +2116,21 @@ document.addEventListener("DOMContentLoaded", () => {
   function sanitizeQuestion(q) {
     if (!q) return;
 
-    // 0. Clean separator lines and spilled module header titles from question prompt
+    // 0. Clean separator lines, spilled module headers, and fallback module assignment by ID
     if (typeof q.question === "string") {
       const upperQ = q.question.toUpperCase();
+      
+      // Strict fallback module assignment by standard CBEH question ID ranges if unspecified or default
+      if (q.id >= 67 && q.id <= 70) {
+        q.module = "Interdisciplinary";
+      } else if (q.id >= 55 && q.id <= 66 && (!q.module || q.module === "Cell Biology")) {
+        q.module = "Embryology";
+      } else if (q.id >= 31 && q.id <= 54 && (!q.module || q.module === "Cell Biology")) {
+        q.module = "Histology";
+      } else if (q.id >= 1 && q.id <= 30 && !q.module) {
+        q.module = "Cell Biology";
+      }
+
       if (upperQ.includes("INTERDISCIPLINARY") || upperQ.includes("MODULE 4:")) {
         q.module = "Interdisciplinary";
       } else if (upperQ.includes("EMBRYOLOGY") || upperQ.includes("MODULE 3:")) {
@@ -2064,6 +2145,12 @@ document.addEventListener("DOMContentLoaded", () => {
       q.question = q.question.replace(/_{3,}/g, "");
       q.question = q.question.replace(/MODULE\s+\d+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
       q.question = q.question.replace(/PART\s+[I|V|X]+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
+      
+      // Clean leading orphaned lower-case fragment words (e.g. "and cellular energy...")
+      q.question = q.question.replace(/^(?:and|or|the|with|in)\s+/i, "").trim();
+      if (q.question.length > 0) {
+        q.question = q.question.charAt(0).toUpperCase() + q.question.slice(1);
+      }
       q.question = q.question.replace(/\s+/g, " ").trim();
     }
 
