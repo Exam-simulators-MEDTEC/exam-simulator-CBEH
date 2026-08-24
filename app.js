@@ -2104,7 +2104,8 @@ document.addEventListener("DOMContentLoaded", () => {
     // 1. Remove letter prefixes like "A. ", "A) ", "A: ", "A - "
     text = text.replace(/^[A-E][\.\)\:\-–—\s]+\s*/i, "").trim();
     // 2. Remove glued letter prefixes like "ASertoli", "BDefault", "CChondrocytes", "DRestriction"
-    if (/^[A-E][A-Z][a-z]/.test(text)) {
+    // Preserve genuine biological acronyms starting with "ACh" (e.g. ACh receptors)
+    if (/^[A-E][A-Z][a-z]/.test(text) && !/^ACh\b/i.test(text)) {
       text = text.substring(1).trim();
     }
     // 3. Remove number prefixes like "1. ", "1) "
@@ -2126,8 +2127,8 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof text !== "string") return text;
     let s = text.trim();
     
-    // 1. Strip section dividers (e.g. ===, ---, ___, ***)
-    s = s.replace(/[=\-\_\*]{3,}/g, " ");
+    // 1. Strip leading section dividers (e.g. ===, ---, ___, ***) - line-anchored to preserve inline blanks
+    s = s.replace(/^(?:[=\-\_\*]{3,}\s*)+/, "");
     
     // 2. Strip leaked module/part/section headers and topic lines
     s = s.replace(/^(?:MODULE|PART|SECTION)\s*(?:\d+|[IVX]+)[\:\s\-–—]*(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)?(?:\s*\(\d+\s*Questions\))?[\:\s\-–—]*/gi, "");
@@ -2139,16 +2140,35 @@ document.addEventListener("DOMContentLoaded", () => {
     s = s.replace(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)]\s*/, "");
     s = s.replace(/^\(?\s*(?:Multiple Choice|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*/i, "");
     
-    // 4. Iterative loop: strip leading punctuation, symbols, bullets, orphaned conjunctions & lowercase-only fragment prepositions
+    // 4. Strip leading punctuation / symbols / bullets / brackets & conjunctions
     while (true) {
       const prev = s;
-      // Strip leading punctuation / symbols / bullets / brackets
-      s = s.replace(/^[\:\.\,\-\–—\_\*\•\#\>\~\]\)\/\s]+/, "").trim();
-      // Strip orphaned conjunctions (case-insensitive: and, or, but, also, as well as, &)
-      s = s.replace(/^(?:and|or|but|also|as well as|&)\s+/i, "").trim();
-      // Strip orphaned LOWERCASE-ONLY preposition / article / pronoun fragments (preserves capitalized 'In', 'The', 'With', 'During', etc.)
-      s = s.replace(/^(?:with|in|to|for|of|by|at|on|from|that|which|whereas|while|because|the|a|an)\s+/, "").trim();
+      s = s.replace(/^[\:\.\,\-\–—\_\*\•\#\>\~\]\)\/\s=]+/, "").trim();
+      s = s.replace(/^(?:and|or|but|also|as well as|&)(?:\s+|$)/i, "").trim();
       if (s === prev) break;
+    }
+
+    // 4b. Strip orphaned LOWERCASE-ONLY preposition fragments if not a valid interrogative phrase like "which of the following"
+    if (/^which\s+of\s+(?:the\s+following|these)\b/i.test(s)) {
+      // Valid question phrase - preserve it!
+    } else {
+      // If string consists solely of multiple lowercase prepositions/articles (e.g. "in with to for of by at on")
+      const words = s.split(/\s+/).filter(w => w.length > 0);
+      const preps = new Set(["with","in","to","for","of","by","at","on","from","that","which","whereas","while","because","the","a","an"]);
+      if (words.length >= 2 && words.every(w => preps.has(w.toLowerCase()))) {
+        s = "";
+      } else {
+        // Strip leading chained prepositions (e.g. "with in for of by..." or "with in the endoplasmic...")
+        while (true) {
+          const prev = s;
+          s = s.replace(/^[\:\.\,\-\–—\_\*\•\#\>\~\]\)\/\s=]+/, "").trim();
+          const chainMatch = s.match(/^(?:(?:with|in|to|for|of|by|at|on|from|that|which|whereas|while|because|the|a|an)\s+){2,}/);
+          if (chainMatch) {
+            s = s.substring(chainMatch[0].length).trim();
+          }
+          if (s === prev) break;
+        }
+      }
     }
     
     // 5. Capitalize first character and normalize internal whitespace
@@ -2174,11 +2194,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 1. Convert misclassified True/False Cluster questions
     if (Array.isArray(q.options) && q.options.length > 0) {
-      const hasTrue = q.options.some(opt => typeof opt === "string" && opt.toLowerCase().trim() === "true");
-      const hasFalse = q.options.some(opt => typeof opt === "string" && opt.toLowerCase().trim() === "false");
+      const isTrueFalseOpt = (opt) => typeof opt === "string" && /^(?:[A-D][\.\)]\s*)?(?:True|False)$/i.test(opt.trim());
+      const hasTF = q.options.some(isTrueFalseOpt);
       const statementOpts = q.options.filter(opt => typeof opt === "string" && /^[A-D][\.\)]\s+/i.test(opt.trim()));
 
-      if ((hasTrue || hasFalse) && statementOpts.length >= 2) {
+      if ((hasTF || /evaluate|assess/i.test(q.question || "")) && statementOpts.length >= 2) {
         q.type = "true-false-cluster";
         q.statements = statementOpts.map(opt => {
           const match = opt.trim().match(/^([A-D])[\.\)]\s*(.*)/i);
@@ -2216,10 +2236,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Filter out separator lines composed purely of =, -, _, *
     const lines = rawLines.filter(l => !/^[=\-\_\*]{3,}$/.test(l));
     
-    // Find ANSWER KEY index
+    // Find ANSWER KEY index using anchored section header detector
+    const answerKeyHeaderRegex = /^(?:#{1,3}\s*)?(?:(?:PART|SECTION)\s+(?:5|V)\b|CORRECT\s+ANSWERS\b|ANSWER\s+KEY\b)/i;
     let answerKeyStartIndex = -1;
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].toUpperCase().includes("ANSWER KEY")) {
+      if (answerKeyHeaderRegex.test(lines[i])) {
         answerKeyStartIndex = i;
         break;
       }
@@ -2262,15 +2283,25 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Detect question start: "ID. TYPE:" or "ID. Prompt"
-      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
+      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
       
       if (qMatch && qMatch[1]) {
         const id = parseInt(qMatch[1], 10);
         const typeStr = (qMatch[2] || "").toLowerCase();
         const promptText = qMatch[3] || "";
         
-        // Only start a new question if type is specified OR if prompt starts with standard question prefixes
-        const isNewQ = qMatch[2] || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || id === (currentQuestion.id + 1);
+        // If we are currently inside a matching question and haven't collected 4 left items yet,
+        // any numbered line without an explicit question type tag is a left item, NOT a new question.
+        let isNewQ = false;
+        if (currentQuestion && currentQuestion.type === "matching" && currentQuestion.leftItems.length < 4) {
+          if (qMatch[2]) {
+            isNewQ = true;
+          } else {
+            isNewQ = false;
+          }
+        } else {
+          isNewQ = qMatch[2] || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || id === (currentQuestion.id + 1);
+        }
 
         if (isNewQ) {
           if (currentQuestion) {
@@ -2279,7 +2310,8 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
           let type = "multiple-choice";
-          if (typeStr.includes("matching") || /^match\b/i.test(promptText)) type = "matching";
+          if (typeStr.includes("multiple choice")) type = "multiple-choice";
+          else if (typeStr.includes("matching") || /^match\b/i.test(promptText)) type = "matching";
           else if (typeStr.includes("true or false cluster") || /^(evaluate|assess)\s+the\s+following/i.test(promptText)) type = "true-false-cluster";
           else if (typeStr.includes("true or false")) type = "true-false";
           else if (typeStr.includes("fill in the gap") || /^fill\s+in/i.test(promptText)) type = "fill-in-the-gap";
@@ -2304,11 +2336,14 @@ document.addEventListener("DOMContentLoaded", () => {
             currentQuestion.options = ["True", "False"];
           }
           continue;
+        } else if (currentQuestion && currentQuestion.type === "matching") {
+          currentQuestion.leftItems.push(line);
+          continue;
         }
       } else if (currentQuestion) {
         // Appending details to active question
         if (currentQuestion.type === "multiple-choice" || currentQuestion.type === "true-false" || currentQuestion.type === "fill-in-the-gap") {
-          const optMatch = line.match(/^(?:[\*\-\+]\s*)?([A-E])[\.\)]\s*(.*)/i);
+          const optMatch = line.match(/^(?:[\*\-\+]?\s*)?([A-E])[\.\)]\s*(.*)/i);
           if (optMatch) {
             currentQuestion.options.push(line);
           } else {
@@ -2316,19 +2351,19 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
         } else if (currentQuestion.type === "matching") {
-          const conceptMatch = line.match(/^(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(.*)/);
-          const descMatch = line.match(/^(?:[\*\-\+]\s*)?([A-E])[\.\)]\s*(.*)/i);
+          const conceptMatch = line.match(/^(?:[\*\-\+]?\s*)?(?:\(?(\d+)[\.\)]|\((\d+)\))\s*(.*)/);
+          const descMatch = line.match(/^(?:[\*\-\+]?\s*)?([A-E])[\.\)]\s*(.*)/i);
           
-          if (conceptMatch) {
-            currentQuestion.leftItems.push(line);
-          } else if (descMatch) {
+          if (descMatch) {
             currentQuestion.rightItems.push(line);
+          } else if (conceptMatch && currentQuestion.leftItems.length < 4) {
+            currentQuestion.leftItems.push(line);
           } else {
             currentQuestion.question += " " + line;
           }
           
         } else if (currentQuestion.type === "true-false-cluster") {
-          const stmtMatch = line.match(/^(?:[\*\-\+]\s*)?([A-D])[\.\)]\s*(.*)/i);
+          const stmtMatch = line.match(/^(?:[\*\-\+]?\s*)?([A-D])[\.\)]\s*(.*)/i);
           if (stmtMatch) {
             currentQuestion.statements.push({
               id: stmtMatch[1].toUpperCase(),
