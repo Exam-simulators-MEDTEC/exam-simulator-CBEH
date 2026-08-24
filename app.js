@@ -2122,30 +2122,54 @@ document.addEventListener("DOMContentLoaded", () => {
     return "Cell Biology";
   }
 
-  // Sanitize misclassified True/False Clusters, option prefixes, and embedded headers
+  function cleanQuestionPromptText(text) {
+    if (typeof text !== "string") return text;
+    let s = text.trim();
+    
+    // 1. Strip section dividers (e.g. ===, ---, ___, ***)
+    s = s.replace(/[=\-\_\*]{3,}/g, " ");
+    
+    // 2. Strip leaked module/part/section headers and topic lines
+    s = s.replace(/^(?:MODULE|PART|SECTION)\s*(?:\d+|[IVX]+)[\:\s\-–—]*(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)?(?:\s*\(\d+\s*Questions\))?[\:\s\-–—]*/gi, "");
+    s = s.replace(/^(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)[\:\s\-–—]+/gi, "");
+    s = s.replace(/^TOPIC[\:\s\-–—]+[^\n\r]+/gi, "");
+    s = s.replace(/^\[(?:Embryology|Histology|Cell Biology|Stem Cells|Apoptosis|Interdisciplinary)[^\]]*\]\s*/gi, "");
+    
+    // 3. Strip redundant question numbers and types at start of prompt if present
+    s = s.replace(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)]\s*/, "");
+    s = s.replace(/^\(?\s*(?:Multiple Choice|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*/i, "");
+    
+    // 4. Iterative loop: strip leading punctuation, symbols, bullets, orphaned conjunctions & lowercase-only fragment prepositions
+    while (true) {
+      const prev = s;
+      // Strip leading punctuation / symbols / bullets / brackets
+      s = s.replace(/^[\:\.\,\-\–—\_\*\•\#\>\~\]\)\/\s]+/, "").trim();
+      // Strip orphaned conjunctions (case-insensitive: and, or, but, also, as well as, &)
+      s = s.replace(/^(?:and|or|but|also|as well as|&)\s+/i, "").trim();
+      // Strip orphaned LOWERCASE-ONLY preposition / article / pronoun fragments (preserves capitalized 'In', 'The', 'With', 'During', etc.)
+      s = s.replace(/^(?:with|in|to|for|of|by|at|on|from|that|which|whereas|while|because|the|a|an)\s+/, "").trim();
+      if (s === prev) break;
+    }
+    
+    // 5. Capitalize first character and normalize internal whitespace
+    if (s.length > 0) {
+      s = s.charAt(0).toUpperCase() + s.slice(1);
+    }
+    return s.replace(/\s+/g, " ").trim();
+  }
+
+  // Sanitize question module classification, prompt text, options, and statement prefixes
   function sanitizeQuestion(q) {
     if (!q) return;
 
-    // Deterministic module assignment based on exact 70-question CBEH structure
+    // Enforce standard CBEH module classification by ID range (specifically 67-70 -> Interdisciplinary)
     if (q.id !== undefined && q.id !== null) {
       q.module = getModuleFromQuestionId(q.id);
     }
 
-    // Clean separator lines and spilled module header titles from question prompt
+    // Clean question prompt text
     if (typeof q.question === "string") {
-      // Strip section divider lines and header blocks from question prompt
-      q.question = q.question.replace(/={3,}/g, "");
-      q.question = q.question.replace(/-{3,}/g, "");
-      q.question = q.question.replace(/_{3,}/g, "");
-      q.question = q.question.replace(/MODULE\s+\d+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
-      q.question = q.question.replace(/PART\s+[I|V|X]+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
-      
-      // Clean leading orphaned lower-case fragment words (e.g. "and cellular energy...")
-      q.question = q.question.replace(/^(?:and|or|the|with|in)\s+/i, "").trim();
-      if (q.question.length > 0) {
-        q.question = q.question.charAt(0).toUpperCase() + q.question.slice(1);
-      }
-      q.question = q.question.replace(/\s+/g, " ").trim();
+      q.question = cleanQuestionPromptText(q.question);
     }
 
     // 1. Convert misclassified True/False Cluster questions
@@ -2181,73 +2205,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function autoFixExistingPool(pool) {
-    if (!Array.isArray(pool) || pool.length === 0) return pool;
-
-    const ghostTexts = ["zygote", "morula", "blastocyst", "bilaminar disc", "epiblast", "hypoblast"];
-    const validQuestions = pool.filter(q => {
-      if (!q || !q.question) return false;
-      const trimmedQ = q.question.toLowerCase().trim();
-      if (ghostTexts.includes(trimmedQ)) return false;
-      if (trimmedQ.length < 15 && (!q.options || q.options.length === 0) && (!q.statements || q.statements.length === 0) && (!q.leftItems || q.leftItems.length === 0)) return false;
-      return true;
-    });
-
-    const sources = {};
-    validQuestions.forEach(q => {
-      const src = q.source || "default";
-      if (!sources[src]) sources[src] = [];
-      sources[src].push(q);
-    });
-
-    const cleanedPool = [];
-    let globalId = 1;
-
-    Object.keys(sources).forEach(src => {
-      const simQuestions = sources[src];
-      const simTotal = simQuestions.length;
-      simQuestions.forEach((q, localIdx) => {
-        const localNum = localIdx + 1;
-        let mod = "Cell Biology";
-        if (localNum >= 67 || (simTotal <= 4 && localNum >= 1)) {
-          mod = "Interdisciplinary";
-        } else if (localNum >= 55) {
-          mod = "Embryology";
-        } else if (localNum >= 31) {
-          mod = "Histology";
-        } else {
-          mod = "Cell Biology";
-        }
-        
-        q.id = globalId++;
-        q.module = mod;
-        
-        // Strip residual section headers and fragment prefixes
-        if (typeof q.question === "string") {
-          q.question = q.question.replace(/={3,}/g, "");
-          q.question = q.question.replace(/-{3,}/g, "");
-          q.question = q.question.replace(/_{3,}/g, "");
-          q.question = q.question.replace(/MODULE\s+\d+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
-          q.question = q.question.replace(/PART\s+[I|V|X]+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
-          q.question = q.question.replace(/^(?:and|or|the|with|in)\s+/i, "").trim();
-          if (q.question.length > 0) {
-            q.question = q.question.charAt(0).toUpperCase() + q.question.slice(1);
-          }
-          q.question = q.question.replace(/\s+/g, " ").trim();
-        }
-        
-        cleanedPool.push(q);
-      });
-    });
-
-    return cleanedPool;
-  }
-
   function sanitizeQuestionPool(pool) {
     if (!Array.isArray(pool)) return;
-    const cleaned = autoFixExistingPool(pool);
-    pool.length = 0;
-    cleaned.forEach(q => pool.push(q));
+    pool.forEach(q => sanitizeQuestion(q));
   }
 
   // Parse Mock Exam Text based on visual layout
@@ -2281,19 +2241,24 @@ document.addEventListener("DOMContentLoaded", () => {
       const line = questionLines[i];
       const upperLine = line.toUpperCase();
       
-      // Module sections transitions (flexible matching for Part numbers, Section headers, and Module titles)
-      if (upperLine.includes("CELL BIOLOGY") || upperLine.includes("MODULE 1:") || upperLine.includes("PART I:") || upperLine.includes("PART 1:") || upperLine.includes("SECTION I") || upperLine.includes("SECTION 1")) {
-        currentModule = "Cell Biology";
-        continue;
-      } else if (upperLine.includes("HISTOLOGY") || upperLine.includes("MODULE 2:") || upperLine.includes("PART II:") || upperLine.includes("PART 2:") || upperLine.includes("SECTION II") || upperLine.includes("SECTION 2")) {
-        currentModule = "Histology";
-        continue;
-      } else if (upperLine.includes("EMBRYOLOGY") || upperLine.includes("MODULE 3:") || upperLine.includes("PART III:") || upperLine.includes("PART 3:") || upperLine.includes("SECTION III") || upperLine.includes("SECTION 3")) {
-        currentModule = "Embryology";
-        continue;
-      } else if (upperLine.includes("INTERDISCIPLINARY") || upperLine.includes("MODULE 4:") || upperLine.includes("PART IV:") || upperLine.includes("PART 4:") || upperLine.includes("SECTION IV") || upperLine.includes("SECTION 4")) {
-        currentModule = "Interdisciplinary";
-        continue;
+      // Guard module header detection so it NEVER matches lines that are question prompts or option lines
+      const isQLine = /^(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)]/.test(line);
+      const isOptLine = /^(?:[\*\-\+]?\s*)?[A-E][\.\)]/i.test(line);
+
+      if (!isQLine && !isOptLine) {
+        if (/\b(?:MODULE|PART|SECTION)\s*(?:4|IV)\b/i.test(line) || /\bINTERDISCIPLINARY\b/i.test(line) || /HART\s+(?:IN0|IV)/i.test(line)) {
+          currentModule = "Interdisciplinary";
+          continue;
+        } else if (/\b(?:MODULE|PART|SECTION)\s*(?:3|III)\b/i.test(line) || /\bEMBRYOLOGY\b/i.test(line) || /HART\s+III/i.test(line)) {
+          currentModule = "Embryology";
+          continue;
+        } else if (/\b(?:MODULE|PART|SECTION)\s*(?:2|II)\b/i.test(line) || /\bHISTOLOGY\b/i.test(line) || /HART\s+II/i.test(line)) {
+          currentModule = "Histology";
+          continue;
+        } else if (/\b(?:MODULE|PART|SECTION)\s*(?:1|I)\b/i.test(line) || /\bCELL\s+BIOLOGY\b/i.test(line) || /HART\s+I/i.test(line)) {
+          currentModule = "Cell Biology";
+          continue;
+        }
       }
 
       // Check if line is a left item for an active matching question (e.g. 1. Zygote, 2. Morula)
@@ -2306,7 +2271,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
       // Detect question start: "ID. TYPE:" or "ID. Prompt"
-      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
+      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
       
       if (qMatch && qMatch[1]) {
         const id = parseInt(qMatch[1], 10);
@@ -2318,6 +2283,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (isNewQ) {
           if (currentQuestion) {
+            sanitizeQuestion(currentQuestion);
             parsedQuestions.push(currentQuestion);
           }
           
@@ -2331,7 +2297,7 @@ document.addEventListener("DOMContentLoaded", () => {
           currentQuestion = {
             id: id,
             type: type,
-            module: getModuleFromQuestionId(id),
+            module: currentModule || getModuleFromQuestionId(id),
             question: promptText,
             options: [],
             leftItems: [],
@@ -2524,8 +2490,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
     
-    // Clean final strings
+    // Clean final strings and sanitize questions
     parsedQuestions.forEach(q => {
+      sanitizeQuestion(q);
       if (q.explanation) q.explanation = q.explanation.replace(/\s+/g, " ").trim();
       if (q.modelAnswer) q.modelAnswer = q.modelAnswer.replace(/\s+/g, " ").trim();
     });
@@ -2611,10 +2578,11 @@ document.addEventListener("DOMContentLoaded", () => {
           throw new Error("Parsed 0 questions. Verify PDF formatting matches mock exam templates.");
         }
         
-        // Tag with file name source and clean text ligatures
+        // Tag with file name source, clean text ligatures, and sanitize question
         parsedQuestions.forEach(q => {
           q.sourceFilename = file.name;
           cleanQuestionText(q);
+          sanitizeQuestion(q);
         });
 
         // Add parsed questions to master pool
@@ -4132,6 +4100,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Expose global methods for testing & debugging
+  window.getModuleFromQuestionId = getModuleFromQuestionId;
+  window.cleanQuestionPromptText = cleanQuestionPromptText;
+  window.sanitizeQuestion = sanitizeQuestion;
+  window.sanitizeQuestionPool = sanitizeQuestionPool;
+  window.parseMockExamText = parseMockExamText;
   window.generateAndDownloadResultsPDF = generateAndDownloadResultsPDF;
   window.generateResultsPDFBlob = generateResultsPDFBlob;
   window.evaluateQuestionResult = evaluateQuestionResult;
