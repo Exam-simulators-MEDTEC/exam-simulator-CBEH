@@ -2261,15 +2261,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
-      // Check if line is a left item for an active matching question (e.g. 1. Zygote, 2. Morula)
-      if (currentQuestion && currentQuestion.type === "matching" && currentQuestion.leftItems.length < 4) {
-        const itemMatch = line.match(/^(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(.*)/);
-        if (itemMatch) {
-          currentQuestion.leftItems.push(line);
-          continue;
-        }
-      }
-      
       // Detect question start: "ID. TYPE:" or "ID. Prompt"
       const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
       
@@ -4100,17 +4091,18 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Expose global methods for testing & debugging
-  window.getModuleFromQuestionId = getModuleFromQuestionId;
-  window.cleanQuestionPromptText = cleanQuestionPromptText;
-  window.sanitizeQuestion = sanitizeQuestion;
-  window.sanitizeQuestionPool = sanitizeQuestionPool;
-  window.parseMockExamText = parseMockExamText;
-  window.generateAndDownloadResultsPDF = generateAndDownloadResultsPDF;
-  window.generateResultsPDFBlob = generateResultsPDFBlob;
-  window.evaluateQuestionResult = evaluateQuestionResult;
-  window.matchQuestionAgainstFilter = matchQuestionAgainstFilter;
-  window.dbFilterState = dbFilterState;
-  window.resetAllDbFilters = resetAllDbFilters;
+  const globalContext = typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this);
+  globalContext.getModuleFromQuestionId = getModuleFromQuestionId;
+  globalContext.cleanQuestionPromptText = cleanQuestionPromptText;
+  globalContext.sanitizeQuestion = sanitizeQuestion;
+  globalContext.sanitizeQuestionPool = sanitizeQuestionPool;
+  globalContext.parseMockExamText = parseMockExamText;
+  globalContext.generateAndDownloadResultsPDF = generateAndDownloadResultsPDF;
+  globalContext.generateResultsPDFBlob = generateResultsPDFBlob;
+  globalContext.evaluateQuestionResult = evaluateQuestionResult;
+  globalContext.matchQuestionAgainstFilter = matchQuestionAgainstFilter;
+  globalContext.dbFilterState = dbFilterState;
+  globalContext.resetAllDbFilters = resetAllDbFilters;
 
   // Invoke state loading and manager UI render on startup
   loadAppState();

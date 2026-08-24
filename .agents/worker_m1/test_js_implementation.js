@@ -31,12 +31,19 @@ function runTests() {
     createElement: function(tag) { return createDummyEl(); },
     addEventListener: function(event, cb) {
       if (event === "DOMContentLoaded") {
-        try { cb(); } catch(e) { console.log("DOMContentLoaded error: " + e); }
+        console.log("DOMContentLoaded listener registered!");
+        try {
+          cb();
+          console.log("DOMContentLoaded finished successfully!");
+        } catch(e) {
+          console.log("DOMContentLoaded error: " + (e.stack || e));
+        }
       }
     }
   };
   
   const mockWindow = {
+    CBEH_QUESTIONS: [],
     pdfjsLib: null,
     addEventListener: function(event, cb) {}
   };
@@ -45,13 +52,19 @@ function runTests() {
   const testFn = new Function("window", "document", "localStorage", "console", `
     if (!console.error) console.error = console.log;
     if (!console.warn) console.warn = console.log;
+    var globalObj = typeof globalThis !== "undefined" ? globalThis : this;
+    globalObj.window = window;
+    globalObj.document = document;
+    globalObj.localStorage = localStorage;
     ${appJsCode}
+    console.log("Inside testFn, window.getModuleFromQuestionId: " + (typeof window.getModuleFromQuestionId));
+    console.log("Inside testFn, globalObj.getModuleFromQuestionId: " + (typeof globalObj.getModuleFromQuestionId));
     return {
-      getModuleFromQuestionId: window.getModuleFromQuestionId,
-      cleanQuestionPromptText: window.cleanQuestionPromptText,
-      sanitizeQuestion: window.sanitizeQuestion,
-      sanitizeQuestionPool: window.sanitizeQuestionPool,
-      parseMockExamText: window.parseMockExamText
+      getModuleFromQuestionId: window.getModuleFromQuestionId || globalObj.getModuleFromQuestionId,
+      cleanQuestionPromptText: window.cleanQuestionPromptText || globalObj.cleanQuestionPromptText,
+      sanitizeQuestion: window.sanitizeQuestion || globalObj.sanitizeQuestion,
+      sanitizeQuestionPool: window.sanitizeQuestionPool || globalObj.sanitizeQuestionPool,
+      parseMockExamText: window.parseMockExamText || globalObj.parseMockExamText
     };
   `);
 
@@ -66,6 +79,11 @@ function runTests() {
     setItem: function(k, v) { mockLocalStorage[k] = v; },
     removeItem: function(k) { delete mockLocalStorage[k]; }
   }, mockConsole);
+
+  console.log("mockWindow keys: " + Object.keys(mockWindow).join(", "));
+  console.log("Top-level this keys: " + Object.keys(this).filter(k => k.includes("Module") || k.includes("Question") || k.includes("Mock")).join(", "));
+  var g = typeof globalThis !== "undefined" ? globalThis : this;
+  console.log("globalThis keys: " + Object.keys(g).filter(k => k.includes("Module") || k.includes("Question") || k.includes("Mock")).join(", "));
 
   const { getModuleFromQuestionId, cleanQuestionPromptText, sanitizeQuestion, sanitizeQuestionPool, parseMockExamText } = exports;
 
@@ -146,6 +164,12 @@ function runTests() {
   const sim4Text = ObjC.unwrap(sim4Data);
   const sim4Questions = parseMockExamText(sim4Text);
 
+  console.log("Sim 4 parsed IDs: " + sim4Questions.map(q => q.id).join(", "));
+  const missing = [];
+  for (let i = 1; i <= 70; i++) {
+    if (!sim4Questions.some(q => q.id === i)) missing.push(i);
+  }
+  console.log("Sim 4 missing IDs: " + missing.join(", "));
   assertEqual(sim4Questions.length, 70, "Sim 4 parsed exactly 70 questions");
   const sim4Modules = sim4Questions.map(q => q.module);
   const sim4Cb = sim4Modules.filter(m => m === "Cell Biology").length;
