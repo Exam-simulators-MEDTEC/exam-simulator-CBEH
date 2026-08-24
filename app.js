@@ -2231,6 +2231,15 @@ document.addEventListener("DOMContentLoaded", () => {
         currentModule = "Interdisciplinary";
         continue;
       }
+
+      // Check if line is a left item for an active matching question (e.g. 1. Zygote, 2. Morula)
+      if (currentQuestion && currentQuestion.type === "matching" && currentQuestion.leftItems.length < 4) {
+        const itemMatch = line.match(/^(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(.*)/);
+        if (itemMatch) {
+          currentQuestion.leftItems.push(line);
+          continue;
+        }
+      }
       
       // Detect question start: "ID. TYPE:" or "ID. Prompt"
       const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]\s*)?(\d+)[\.\)]\s*(?:\(?\s*(Multiple Choice|True or False|Open Question|Fill in\s+(?:\w+\s+)?the\s+gap|Matching|True or False Cluster)(?:[^)]*)?\)?\:?\s*)?(.*)/i);
