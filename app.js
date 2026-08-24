@@ -2181,9 +2181,73 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  function autoFixExistingPool(pool) {
+    if (!Array.isArray(pool) || pool.length === 0) return pool;
+
+    const ghostTexts = ["zygote", "morula", "blastocyst", "bilaminar disc", "epiblast", "hypoblast"];
+    const validQuestions = pool.filter(q => {
+      if (!q || !q.question) return false;
+      const trimmedQ = q.question.toLowerCase().trim();
+      if (ghostTexts.includes(trimmedQ)) return false;
+      if (trimmedQ.length < 15 && (!q.options || q.options.length === 0) && (!q.statements || q.statements.length === 0) && (!q.leftItems || q.leftItems.length === 0)) return false;
+      return true;
+    });
+
+    const sources = {};
+    validQuestions.forEach(q => {
+      const src = q.source || "default";
+      if (!sources[src]) sources[src] = [];
+      sources[src].push(q);
+    });
+
+    const cleanedPool = [];
+    let globalId = 1;
+
+    Object.keys(sources).forEach(src => {
+      const simQuestions = sources[src];
+      const simTotal = simQuestions.length;
+      simQuestions.forEach((q, localIdx) => {
+        const localNum = localIdx + 1;
+        let mod = "Cell Biology";
+        if (localNum >= 67 || (simTotal <= 4 && localNum >= 1)) {
+          mod = "Interdisciplinary";
+        } else if (localNum >= 55) {
+          mod = "Embryology";
+        } else if (localNum >= 31) {
+          mod = "Histology";
+        } else {
+          mod = "Cell Biology";
+        }
+        
+        q.id = globalId++;
+        q.module = mod;
+        
+        // Strip residual section headers and fragment prefixes
+        if (typeof q.question === "string") {
+          q.question = q.question.replace(/={3,}/g, "");
+          q.question = q.question.replace(/-{3,}/g, "");
+          q.question = q.question.replace(/_{3,}/g, "");
+          q.question = q.question.replace(/MODULE\s+\d+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
+          q.question = q.question.replace(/PART\s+[I|V|X]+:\s*(CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)/gi, "");
+          q.question = q.question.replace(/^(?:and|or|the|with|in)\s+/i, "").trim();
+          if (q.question.length > 0) {
+            q.question = q.question.charAt(0).toUpperCase() + q.question.slice(1);
+          }
+          q.question = q.question.replace(/\s+/g, " ").trim();
+        }
+        
+        cleanedPool.push(q);
+      });
+    });
+
+    return cleanedPool;
+  }
+
   function sanitizeQuestionPool(pool) {
     if (!Array.isArray(pool)) return;
-    pool.forEach(sanitizeQuestion);
+    const cleaned = autoFixExistingPool(pool);
+    pool.length = 0;
+    cleaned.forEach(q => pool.push(q));
   }
 
   // Parse Mock Exam Text based on visual layout
@@ -2780,6 +2844,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // Always sanitize pool and active exam questions on load
       sanitizeQuestionPool(state.questionsPool);
       sanitizeQuestionPool(state.questions);
+      saveQuestionsPool();
+      updateUploadedSimulationsCount();
 
       // Update welcome screen stats
       if (poolStatusCount) poolStatusCount.textContent = state.questionsPool.length;
