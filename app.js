@@ -626,13 +626,28 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function startExamWithQuestions(questionsList) {
-    sanitizeQuestionPool(questionsList);
+    if (questionsList.length === 70) {
+      sanitizeQuestionPool(questionsList);
+    } else {
+      // For custom sub-quizzes (Bookmarks, Focus Mode), preserve true module while cleaning text/options
+      questionsList.forEach(q => {
+        const trueModule = q.module;
+        cleanQuestionText(q);
+        if (typeof q.question === "string") {
+          q.question = cleanQuestionPromptText(q.question);
+        }
+        if (trueModule) {
+          q.module = trueModule;
+        }
+      });
+    }
     state.questions = questionsList;
     state.currentQuestionIndex = 0;
     state.answers = {};
     state.flags = {};
     state.selfGradedScores = {};
     state.reviewPagination = {};
+    state.currentAttemptTimestamp = null;
     
     // Scale timer dynamically based on question count
     if (questionsList.length <= 10) {
@@ -1301,6 +1316,28 @@ document.addEventListener("DOMContentLoaded", () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function formatQuestionTypeLabel(type) {
+    if (!type) return "Question";
+    const map = {
+      "multiple-choice": "Multiple Choice",
+      "true-false": "True / False",
+      "true-false-cluster": "True / False Cluster",
+      "fill-in-the-gap": "Fill in the Gap",
+      "matching": "Matching",
+      "open": "Open Question"
+    };
+    return map[type] || type.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  function getModuleClass(moduleName) {
+    if (!moduleName) return "cellbio";
+    const lower = moduleName.toLowerCase();
+    if (lower.includes("hist")) return "histology";
+    if (lower.includes("embryo")) return "embryology";
+    if (lower.includes("inter")) return "interdisciplinary";
+    return "cellbio";
+  }
+
   function initializeSelfGradingList() {
     openQuestionsGradingList.innerHTML = "";
     
@@ -1314,15 +1351,47 @@ document.addEventListener("DOMContentLoaded", () => {
     
     openQuestions.forEach((q) => {
       const userVal = state.answers[q.id] || "";
-      state.selfGradedScores[q.id] = 0; // Default to 0 points until graded
+      state.selfGradedScores[q.id] = (state.selfGradedScores[q.id] === 1) ? 1 : 0;
+      const isGraded = state.selfGradedScores[q.id] === 1;
       
       const itemCard = document.createElement("div");
-      itemCard.className = "grading-item-card graded-incorrect";
+      itemCard.className = `grading-item-card ${isGraded ? 'graded-correct' : 'graded-incorrect'}`;
       itemCard.id = `grading-card-${q.id}`;
       
-      const title = document.createElement("div");
-      title.className = "item-q-title";
-      title.textContent = `Question ${q.id} - ${q.module}`;
+      // Top horizontal header bar spanning full width
+      const headerBar = document.createElement("div");
+      headerBar.className = "review-card-header";
+      
+      const metaLeft = document.createElement("div");
+      metaLeft.className = "review-card-meta";
+      
+      const qIdBadge = document.createElement("span");
+      qIdBadge.className = "review-card-id";
+      qIdBadge.textContent = `Question ${q.id}`;
+      
+      const moduleBadge = document.createElement("span");
+      moduleBadge.className = `review-module-pill pill-${getModuleClass(q.module)}`;
+      moduleBadge.textContent = q.module;
+      
+      const typeBadge = document.createElement("span");
+      typeBadge.className = "review-type-pill";
+      typeBadge.textContent = "Open Question";
+      
+      metaLeft.appendChild(qIdBadge);
+      metaLeft.appendChild(moduleBadge);
+      metaLeft.appendChild(typeBadge);
+      
+      const metaRight = document.createElement("div");
+      metaRight.className = "review-card-status";
+      
+      const statusPill = document.createElement("span");
+      statusPill.className = `review-status-pill ${isGraded ? 'graded-correct' : 'graded-incorrect'}`;
+      statusPill.textContent = isGraded ? "✓ Graded: 1 pt" : "✗ Graded: 0 pts";
+      
+      metaRight.appendChild(statusPill);
+      
+      headerBar.appendChild(metaLeft);
+      headerBar.appendChild(metaRight);
       
       const text = document.createElement("div");
       text.className = "item-q-text";
@@ -1333,7 +1402,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // User answer box
       const userBox = document.createElement("div");
-      userBox.className = "comparison-box";
+      userBox.className = "comparison-box user-response-box";
       const userTitle = document.createElement("h5");
       userTitle.textContent = "Your Written Answer";
       userBox.appendChild(userTitle);
@@ -1349,28 +1418,27 @@ document.addEventListener("DOMContentLoaded", () => {
       
       // Model answer box
       const modelBox = document.createElement("div");
-      modelBox.className = "comparison-box";
+      modelBox.className = "comparison-box model-answer-box";
       const modelTitle = document.createElement("h5");
       modelTitle.textContent = "Official Model Answer & Criteria";
       modelBox.appendChild(modelTitle);
       
       const modelContent = document.createElement("p");
-      modelContent.textContent = q.modelAnswer;
+      modelContent.textContent = q.modelAnswer || "Model answer not specified.";
       modelBox.appendChild(modelContent);
       
-      comparison.appendChild(userBox);
-      comparison.appendChild(modelBox);
-      
-      // Self-grade Action buttons
+      // Self-grade Action buttons aligned cleanly under the model answer
       const actions = document.createElement("div");
       actions.className = "grading-actions";
       
       const btnIncorrect = document.createElement("button");
-      btnIncorrect.className = "btn grading-btn incorrect active";
+      btnIncorrect.type = "button";
+      btnIncorrect.className = `btn grading-btn incorrect ${!isGraded ? 'active' : ''}`;
       btnIncorrect.textContent = "Incorrect (0 pts)";
       
       const btnCorrect = document.createElement("button");
-      btnCorrect.className = "btn grading-btn correct";
+      btnCorrect.type = "button";
+      btnCorrect.className = `btn grading-btn correct ${isGraded ? 'active' : ''}`;
       btnCorrect.textContent = "Correct (1 pt)";
       
       btnIncorrect.addEventListener("click", () => {
@@ -1378,6 +1446,8 @@ document.addEventListener("DOMContentLoaded", () => {
         btnCorrect.classList.remove("active");
         itemCard.classList.remove("graded-correct");
         itemCard.classList.add("graded-incorrect");
+        statusPill.className = "review-status-pill graded-incorrect";
+        statusPill.textContent = "✗ Graded: 0 pts";
         state.selfGradedScores[q.id] = 0;
         calculateScores();
       });
@@ -1387,17 +1457,22 @@ document.addEventListener("DOMContentLoaded", () => {
         btnIncorrect.classList.remove("active");
         itemCard.classList.remove("graded-incorrect");
         itemCard.classList.add("graded-correct");
+        statusPill.className = "review-status-pill graded-correct";
+        statusPill.textContent = "✓ Graded: 1 pt";
         state.selfGradedScores[q.id] = 1;
         calculateScores();
       });
       
       actions.appendChild(btnIncorrect);
       actions.appendChild(btnCorrect);
+      modelBox.appendChild(actions);
       
-      itemCard.appendChild(title);
+      comparison.appendChild(userBox);
+      comparison.appendChild(modelBox);
+      
+      itemCard.appendChild(headerBar);
       itemCard.appendChild(text);
       itemCard.appendChild(comparison);
-      itemCard.appendChild(actions);
       
       openQuestionsGradingList.appendChild(itemCard);
     });
@@ -1729,9 +1804,14 @@ document.addEventListener("DOMContentLoaded", () => {
       resultScoreSummary.innerHTML += `<div style="font-size: 0.95rem; color: #f87171; margin-top: 0.5rem; font-weight: 500;">Reasons for fail: ${failReasons.join(", ")}</div>`;
     }
     
-    // SAVE ATTEMPT TO HISTORY
+    // SAVE ATTEMPT TO HISTORY (Update active session attempt or push once)
+    if (!state.currentAttemptTimestamp) {
+      state.currentAttemptTimestamp = new Date().toISOString();
+    }
+
     const attemptRecord = {
-      date: new Date().toISOString(),
+      id: state.currentAttemptTimestamp,
+      date: state.currentAttemptTimestamp,
       mode: state.examMode || "Full Simulation",
       totalScore: totalScore,
       totalQuestions: state.questions.length,
@@ -1739,7 +1819,13 @@ document.addEventListener("DOMContentLoaded", () => {
       isPassed: isPassed,
       moduleScores: moduleScores
     };
-    state.history.push(attemptRecord);
+
+    const existingIdx = state.history.findIndex(h => h.id === state.currentAttemptTimestamp || h.date === state.currentAttemptTimestamp);
+    if (existingIdx >= 0) {
+      state.history[existingIdx] = attemptRecord;
+    } else {
+      state.history.push(attemptRecord);
+    }
     localStorage.setItem("cbeh_history", JSON.stringify(state.history));
     
     if (typeof updateAnalyticsUI === "function") {
@@ -1816,9 +1902,40 @@ document.addEventListener("DOMContentLoaded", () => {
     const card = document.createElement("div");
     card.className = `review-item-card ${isCorrect ? 'correct' : 'incorrect'}`;
     
-    const title = document.createElement("div");
-    title.className = "item-q-title";
-    title.textContent = `Question ${q.id} - ${q.module} [${q.type.replace("-", " ").toUpperCase()}]`;
+    // Top horizontal header bar spanning full width
+    const headerBar = document.createElement("div");
+    headerBar.className = "review-card-header";
+    
+    const metaLeft = document.createElement("div");
+    metaLeft.className = "review-card-meta";
+    
+    const qIdBadge = document.createElement("span");
+    qIdBadge.className = "review-card-id";
+    qIdBadge.textContent = `Question ${q.id}`;
+    
+    const moduleBadge = document.createElement("span");
+    moduleBadge.className = `review-module-pill pill-${getModuleClass(q.module)}`;
+    moduleBadge.textContent = q.module;
+    
+    const typeBadge = document.createElement("span");
+    typeBadge.className = "review-type-pill";
+    typeBadge.textContent = formatQuestionTypeLabel(q.type);
+    
+    metaLeft.appendChild(qIdBadge);
+    metaLeft.appendChild(moduleBadge);
+    metaLeft.appendChild(typeBadge);
+    
+    const metaRight = document.createElement("div");
+    metaRight.className = "review-card-status";
+    
+    const statusPill = document.createElement("span");
+    statusPill.className = `review-status-pill ${isCorrect ? 'status-correct' : 'status-incorrect'}`;
+    statusPill.textContent = isCorrect ? "✓ Correct (+1 pt)" : "✗ Incorrect (0 pts)";
+    
+    metaRight.appendChild(statusPill);
+    
+    headerBar.appendChild(metaLeft);
+    headerBar.appendChild(metaRight);
     
     const text = document.createElement("div");
     text.className = "item-q-text";
@@ -1832,7 +1949,7 @@ document.addEventListener("DOMContentLoaded", () => {
       userLine.className = `review-answer-line user ${isCorrect ? 'correct-selection' : ''}`;
       
       let userDisplay = uAns ? uAns : "[No selection made]";
-      if (q.type === "multiple-choice" && uAns) {
+      if (q.type === "multiple-choice" && uAns && Array.isArray(q.options)) {
         const matchingOpt = q.options.find(opt => opt.startsWith(uAns));
         if (matchingOpt) userDisplay = matchingOpt;
       }
@@ -1841,7 +1958,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const correctLine = document.createElement("div");
       correctLine.className = "review-answer-line correct";
       let correctDisplay = q.correctAnswer;
-      if (q.type === "multiple-choice") {
+      if (q.type === "multiple-choice" && Array.isArray(q.options)) {
         const matchingOpt = q.options.find(opt => opt.startsWith(q.correctAnswer));
         if (matchingOpt) correctDisplay = matchingOpt;
       }
@@ -1853,40 +1970,44 @@ document.addEventListener("DOMContentLoaded", () => {
       }
       
     } else if (q.type === "matching") {
-      q.leftItems.forEach((leftItem, idx) => {
-        const matchLine = document.createElement("div");
-        matchLine.className = "review-answer-line";
-        
-        const userValIdx = uAns && uAns[idx];
-        const correctValIdx = q.correctAnswers[idx];
-        
-        const userValText = userValIdx !== undefined ? q.rightItems[userValIdx] : "[No selection]";
-        const correctValText = q.rightItems[correctValIdx];
-        
-        const isPairCorrect = userValIdx !== undefined && userValIdx.toString() === correctValIdx.toString();
-        
-        matchLine.innerHTML = `<strong>${leftItem}</strong>: matched to 
-          <span style="color: ${isPairCorrect ? '#10b981' : '#f87171'}">${userValText}</span>
-          ${isPairCorrect ? '' : ` (Correct: <span style="color: #34d399">${correctValText}</span>)`}`;
-        
-        answersGrid.appendChild(matchLine);
-      });
+      if (Array.isArray(q.leftItems)) {
+        q.leftItems.forEach((leftItem, idx) => {
+          const matchLine = document.createElement("div");
+          matchLine.className = "review-answer-line";
+          
+          const userValIdx = uAns && uAns[idx];
+          const correctValIdx = q.correctAnswers && q.correctAnswers[idx];
+          
+          const userValText = userValIdx !== undefined && q.rightItems ? q.rightItems[userValIdx] : "[No selection]";
+          const correctValText = correctValIdx !== undefined && q.rightItems ? q.rightItems[correctValIdx] : "[Unspecified]";
+          
+          const isPairCorrect = userValIdx !== undefined && correctValIdx !== undefined && userValIdx.toString() === correctValIdx.toString();
+          
+          matchLine.innerHTML = `<strong>${leftItem}</strong>: matched to 
+            <span style="color: ${isPairCorrect ? '#10b981' : '#f87171'}">${userValText}</span>
+            ${isPairCorrect ? '' : ` (Correct: <span style="color: #34d399">${correctValText}</span>)`}`;
+          
+          answersGrid.appendChild(matchLine);
+        });
+      }
       
     } else if (q.type === "true-false-cluster") {
-      q.statements.forEach(statement => {
-        const stmtLine = document.createElement("div");
-        stmtLine.className = "review-answer-line";
-        
-        const userVal = uAns && uAns[statement.id];
-        const correctVal = statement.correctAnswer;
-        const isStmtCorrect = userVal === correctVal;
-        
-        stmtLine.innerHTML = `<strong>${statement.id}</strong>: ${statement.text} <br>
-          Your Answer: <span style="color: ${isStmtCorrect ? '#10b981' : '#f87171'}">${userVal || "[No selection]"}</span>
-          ${isStmtCorrect ? '' : ` (Correct: <span style="color: #34d399">${correctVal}</span>)`}`;
-        
-        answersGrid.appendChild(stmtLine);
-      });
+      if (Array.isArray(q.statements)) {
+        q.statements.forEach(statement => {
+          const stmtLine = document.createElement("div");
+          stmtLine.className = "review-answer-line";
+          
+          const userVal = uAns && uAns[statement.id];
+          const correctVal = statement.correctAnswer;
+          const isStmtCorrect = userVal === correctVal;
+          
+          stmtLine.innerHTML = `<strong>${statement.id}</strong>: ${statement.text || statement.statement || ''} <br>
+            Your Answer: <span style="color: ${isStmtCorrect ? '#10b981' : '#f87171'}">${userVal || "[No selection]"}</span>
+            ${isStmtCorrect ? '' : ` (Correct: <span style="color: #34d399">${correctVal}</span>)`}`;
+          
+          answersGrid.appendChild(stmtLine);
+        });
+      }
     }
     
     const solutionWrapper = document.createElement("div");
@@ -1905,7 +2026,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const explanation = document.createElement("div");
     explanation.className = "review-explanation";
-    explanation.textContent = `Explanation: ${q.explanation}`;
+    explanation.textContent = `Explanation: ${q.explanation || 'No explanation provided.'}`;
 
     detailsBox.appendChild(answersGrid);
     detailsBox.appendChild(explanation);
@@ -1919,11 +2040,12 @@ document.addEventListener("DOMContentLoaded", () => {
     solutionWrapper.appendChild(btnShowAnswer);
     solutionWrapper.appendChild(detailsBox);
 
-    card.appendChild(title);
+    card.appendChild(headerBar);
     card.appendChild(text);
     card.appendChild(solutionWrapper);
 
     autoQuestionsReviewList.appendChild(card);
+    return card;
   }
 
   function saveCurrentSimulationProgress() {
@@ -1963,6 +2085,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.selfGradedScores = {};
     state.reviewPagination = {};
     state.isExamSubmitted = false;
+    state.currentAttemptTimestamp = null;
     
     localStorage.removeItem("cbeh_active_exam_state_v1");
     localStorage.removeItem("cbeh_saved_simulation");
@@ -2197,15 +2320,15 @@ document.addEventListener("DOMContentLoaded", () => {
   function cleanOptionPrefix(opt) {
     if (typeof opt !== "string") return opt;
     let text = opt.trim();
-    // 1. Remove letter prefixes like "A. ", "A) ", "A: ", "A - "
-    text = text.replace(/^[A-E][\.\)\:\-–—\s]+\s*/i, "").trim();
+    // 1. Remove letter / bracketed prefixes like "A. ", "A) ", "A: ", "(A) ", "A - "
+    text = text.replace(/^(?:\([A-E1-5]\)|[A-E][\.\)\:\-–—\s]+)\s*/i, "").trim();
     // 2. Remove glued letter prefixes like "ASertoli", "BDefault", "CChondrocytes", "DRestriction"
     // Preserve genuine biological acronyms starting with "ACh" (e.g. ACh receptors)
     if (/^[A-E][A-Z][a-z]/.test(text) && !/^ACh\b/i.test(text)) {
       text = text.substring(1).trim();
     }
-    // 3. Remove number prefixes like "1. ", "1) "
-    text = text.replace(/^[1-5][\.\)\:\-–—\s]+\s*/, "").trim();
+    // 3. Remove number prefixes like "1. ", "1) ", "(1) "
+    text = text.replace(/^(?:\([1-5]\)|[1-5][\.\)\:\-–—\s]+)\s*/, "").trim();
     return text;
   }
 
@@ -2223,25 +2346,31 @@ document.addEventListener("DOMContentLoaded", () => {
     if (typeof text !== "string") return text;
     let s = text.trim();
     
-    // 1. Strip leading section dividers (e.g. ===, ---, ***, and ___ before numbers) - preserving fill-in gap blanks
-    s = s.replace(/^(?:[=\-\*]{3,}\s*)+/, "");
-    s = s.replace(/^(?:[=\-\_\*]{3,}\s*)+(?=(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)])/, "");
-    
-    // 2. Strip leaked module/part/section headers and topic lines
-    s = s.replace(/^(?:MODULE|PART|SECTION)\s*(?:\d+|[IVX]+)[\:\s\-–—]*(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)?(?:\s*\(\d+\s*Questions\))?[\:\s\-–—]*/gi, "");
-    s = s.replace(/^(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)[\:\s\-–—]+/gi, "");
-    s = s.replace(/^TOPIC[\:\s\-–—]+[^\n\r]+/gi, "");
-    s = s.replace(/^\[(?:Embryology|Histology|Cell Biology|Stem Cells|Apoptosis|Interdisciplinary)[^\]]*\]\s*/gi, "");
-    
-    // 3. Strip redundant question numbers and types at start of prompt if present
-    s = s.replace(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)]\s*/, "");
-    s = s.replace(/^(?:\((?:Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)[^)]*\)|(?:Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching))\:?\s*/i, "");
-    
-    // 4. Strip leading punctuation / symbols / bullets / brackets & conjunctions (preserving underline blanks `________`)
+    // Iteratively strip leading section dividers, leaked headers, redundant question numbers/types, and symbols
     while (true) {
       const prev = s;
+
+      // 1. Strip leading section dividers (e.g. ===, ---, ***, and ___ before numbers) - preserving fill-in gap blanks
+      s = s.replace(/^(?:[=\-\*]{3,}\s*)+/, "");
+      s = s.replace(/^(?:[=\-\_\*]{3,}\s*)+(?=(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)])/, "");
+      
+      // 2. Strip leaked module/part/section headers and topic lines (including trailing divider symbols like ===)
+      s = s.replace(/^(?:MODULE|PART|SECTION)\s*(?:\d+|[IVX]+)[\:\s\-–—=]*(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)?(?:\s*\(\d+\s*Questions\))?[\:\s\-–—=]*/gi, "");
+      s = s.replace(/^(?:CELL BIOLOGY|HISTOLOGY|EMBRYOLOGY|INTERDISCIPLINARY)[\:\s\-–—=]+/gi, "");
+      s = s.replace(/^TOPIC[\:\s\-–—]+[^\n\r]+/gi, "");
+      s = s.replace(/^\[(?:Embryology|Histology|Cell Biology|Stem Cells|Apoptosis|Interdisciplinary)[^\]]*\]\s*/gi, "");
+      
+      // 3. Strip leading punctuation / symbols / bullets / brackets (preserving underline blanks `________`)
+      s = s.replace(/^[\:\.\,\-\–—\*\•\#\>\~\]\)\/\s=]+(?=[a-zA-Z0-9#\(\[])/, "").trim();
+
+      // 4. Strip redundant question numbers and types at start of prompt if present
+      s = s.replace(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?\d+[\.\)]\s*/, "");
+      s = s.replace(/^(?:\((?:Multiple Choice(?:\s*-\s*Matching)?|True\s*(?:or|\/)\s*False(?:\s*Cluster)?|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill[\s\-]*(?:in)?[\s\-]*(?:\w+[\s\-]*)?(?:the[\s\-]*)?gap|Matching)[^)]*\)|(?:Multiple Choice(?:\s*-\s*Matching)?|True\s*(?:or|\/)\s*False(?:\s*Cluster)?|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill[\s\-]*(?:in)?[\s\-]*(?:\w+[\s\-]*)?(?:the[\s\-]*)?gap|Matching))\:?\s*/i, "");
+      
+      // 5. Strip leading punctuation / symbols / bullets / brackets & conjunctions (preserving underline blanks `________`)
       s = s.replace(/^[\:\.\,\-\–—\*\•\#\>\~\]\)\/\s=]+/, "").trim();
       s = s.replace(/^(?:and|or|but|also|as well as|&)(?:\s+|$)/i, "").trim();
+
       if (s === prev) break;
     }
 
@@ -2380,7 +2509,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Detect question start: "ID. (TYPE)" or "ID. TYPE:" or "ID. Prompt"
-      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?(\d+)[\.\)]\s*(?:\((Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)[^)]*\)|(Multiple Choice(?:\s*-\s*Matching)?|True or False Cluster|True or False|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill in\s+(?:\w+\s+)?the\s+gap|Matching)\:?)?\s*(.*)/i);
+      const qMatch = line.match(/^(?:#+\s*)?(?:[\*\-\+]?\s*)?(\d+)[\.\)]\s*(?:\((Multiple Choice(?:\s*-\s*Matching)?|True\s*(?:or|\/)\s*False(?:\s*Cluster)?|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill[\s\-]+in[^\)]*gap|Fill[\s\-]*gap|Matching)[^)]*\)|(Multiple Choice(?:\s*-\s*Matching)?|True\s*(?:or|\/)\s*False(?:\s*Cluster)?|Open Question(?:\s*-\s*Max\s*\d+\s*words)?|Fill[\s\-]+in[^\n\:]*gap|Fill[\s\-]*gap|Matching)\:?)?\s*(.*)/i);
       
       if (qMatch && qMatch[1]) {
         const id = parseInt(qMatch[1], 10);
@@ -2399,7 +2528,7 @@ document.addEventListener("DOMContentLoaded", () => {
             isNewQ = false;
           }
         } else {
-          isNewQ = hasTypeTag || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || id === (currentQuestion.id + 1);
+          isNewQ = hasTypeTag || /^(match|evaluate|assess|which|what|fill|select|choose|identify)/i.test(promptText) || !currentQuestion || (currentQuestion && id === (currentQuestion.id + 1));
         }
 
         if (isNewQ) {
@@ -2409,12 +2538,12 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
           let type = "multiple-choice";
-          if (typeStr.includes("multiple choice")) type = "multiple-choice";
-          else if (typeStr.includes("matching") || /^match\b/i.test(promptText)) type = "matching";
-          else if (typeStr.includes("true or false cluster") || /^(evaluate|assess)\s+the\s+following/i.test(promptText)) type = "true-false-cluster";
-          else if (typeStr.includes("true or false")) type = "true-false";
-          else if (typeStr.includes("fill in the gap") || /^fill\s+in/i.test(promptText)) type = "fill-in-the-gap";
-          else if (typeStr.includes("open question") || /^(explain|describe)\b/i.test(promptText)) type = "open";
+          if (/multiple\s*choice/i.test(typeStr)) type = "multiple-choice";
+          else if (/matching/i.test(typeStr) || /^match\b/i.test(promptText)) type = "matching";
+          else if (/true\s*(?:or|\/)\s*false\s*cluster/i.test(typeStr) || /^(evaluate|assess)\s+the\s+following/i.test(promptText)) type = "true-false-cluster";
+          else if (/true\s*(?:or|\/)\s*false/i.test(typeStr)) type = "true-false";
+          else if (/fill\s*(?:in)?.*gap/i.test(typeStr) || /^fill\s+in/i.test(promptText) || (promptText.includes("________") && !/multiple|match|evaluate/i.test(typeStr))) type = "fill-in-the-gap";
+          else if (/open\s*question/i.test(typeStr) || /^(explain|describe)\b/i.test(promptText)) type = "open";
           
           currentQuestion = {
             id: id,
@@ -2435,14 +2564,18 @@ document.addEventListener("DOMContentLoaded", () => {
             currentQuestion.options = ["True", "False"];
           }
           continue;
-        } else if (currentQuestion && currentQuestion.type === "matching") {
-          currentQuestion.leftItems.push(line);
+        } else if (currentQuestion) {
+          if (currentQuestion.type === "matching" && currentQuestion.leftItems.length < 4) {
+            currentQuestion.leftItems.push(line);
+          } else {
+            currentQuestion.question += " " + line;
+          }
           continue;
         }
       } else if (currentQuestion) {
         // Appending details to active question
         if (currentQuestion.type === "multiple-choice" || currentQuestion.type === "true-false" || currentQuestion.type === "fill-in-the-gap") {
-          const optMatch = line.match(/^(?:[\*\-\+]?\s*)?([A-E])[\.\)]\s*(.*)/i);
+          const optMatch = line.match(/^(?:[\*\-\+]?\s*)?(?:\(([A-E])\)|([A-E])[\.\)])\s*(.*)/i);
           if (optMatch) {
             currentQuestion.options.push(line);
           } else {
@@ -2451,7 +2584,7 @@ document.addEventListener("DOMContentLoaded", () => {
           
         } else if (currentQuestion.type === "matching") {
           const conceptMatch = line.match(/^(?:[\*\-\+]?\s*)?(?:\(?(\d+)[\.\)]|\((\d+)\))\s*(.*)/);
-          const descMatch = line.match(/^(?:[\*\-\+]?\s*)?([A-E])[\.\)]\s*(.*)/i);
+          const descMatch = line.match(/^(?:[\*\-\+]?\s*)?(?:\(([A-E])\)|([A-E])[\.\)])\s*(.*)/i);
           
           if (descMatch) {
             currentQuestion.rightItems.push(line);
@@ -2462,10 +2595,11 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           
         } else if (currentQuestion.type === "true-false-cluster") {
-          const stmtMatch = line.match(/^(?:[\*\-\+]?\s*)?([A-D])[\.\)]\s*(.*)/i);
+          const stmtMatch = line.match(/^(?:[\*\-\+]?\s*)?(?:\(([A-D])\)|([A-D])[\.\)])\s*(.*)/i);
           if (stmtMatch) {
+            const stmtId = (stmtMatch[1] || stmtMatch[2]).toUpperCase();
             currentQuestion.statements.push({
-              id: stmtMatch[1].toUpperCase(),
+              id: stmtId,
               text: line,
               correctAnswer: null
             });
@@ -2495,33 +2629,34 @@ document.addEventListener("DOMContentLoaded", () => {
     parsedQuestions.forEach(q => {
       q.question = q.question.replace(/\s+/g, " ").trim();
       
-      if (q.type === "multiple-choice" && q.options.length === 0) {
-        // Regex to match inline options e.g. A. option1 B. option2 ...
-        const inlineRegex = /(?:^|\s)([A-E])[\.\)]\s+((?:(?!\s[A-E][\.\)]).)+)/gi;
-        const matches = [...q.question.matchAll(inlineRegex)];
+      if (q.type === "multiple-choice" && (q.options.length < 4 || /(?:^|[\s\(])A[\.\)]\s+/i.test(q.question))) {
+        // Regex to match inline options e.g. A. option1 B. option2 ... or (A) option1 (B) option2 ...
+        const combinedText = [q.question, ...q.options].join(" ");
+        const inlineRegex = /(?:^|[\s\(])([A-E])[\.\)]\s+((?:(?!(?:^|[\s\(])[A-E][\.\)]).)+)/gi;
+        const matches = [...combinedText.matchAll(inlineRegex)];
         
-        if (matches.length >= 4) {
-          const firstOptionIndex = q.question.search(/(?:^|\s)[A-E][\.\)]\s+/i);
+        if (matches.length >= 3) {
+          const firstOptionIndex = q.question.search(/(?:^|[\s\(])[A-E][\.\)]\s+/i);
           if (firstOptionIndex !== -1) {
             const mainQuestion = q.question.substring(0, firstOptionIndex).trim();
-            const tempOptions = [];
-            
-            matches.forEach(m => {
-              const letter = m[1].toUpperCase();
-              const text = m[2].trim();
-              tempOptions.push(`${letter}. ${text}`);
-            });
-            
             q.question = mainQuestion;
-            q.options = tempOptions;
           }
+          const tempOptions = [];
+          
+          matches.forEach(m => {
+            const letter = m[1].toUpperCase();
+            const text = m[2].trim();
+            tempOptions.push(`${letter}. ${text}`);
+          });
+          
+          q.options = tempOptions;
         }
       } else if (q.type === "true-false-cluster" && q.statements.length === 0) {
         // Regex to match inline cluster statements e.g. A) Statement1 B) Statement2 ...
-        const inlineRegex = /(?:^|\s)([A-D])[\)\.]\s+((?:(?!\s[A-D][\)\.]).)+)/gi;
+        const inlineRegex = /(?:^|[\s\(])([A-D])[\)\.]\s+((?:(?!(?:^|[\s\(])[A-D][\)\.]).)+)/gi;
         const matches = [...q.question.matchAll(inlineRegex)];
         if (matches.length >= 2) {
-          const firstStmtIndex = q.question.search(/(?:^|\s)[A-D][\)\.]\s+/i);
+          const firstStmtIndex = q.question.search(/(?:^|[\s\(])[A-D][\)\.]\s+/i);
           if (firstStmtIndex !== -1) {
             const mainQuestion = q.question.substring(0, firstStmtIndex).trim();
             q.question = mainQuestion;
@@ -2548,20 +2683,23 @@ document.addEventListener("DOMContentLoaded", () => {
         const q = parsedQuestions.find(item => item.id === currentAnsId);
         if (q) {
           if (q.type === "multiple-choice") {
-            const letterMatch = ansContent.match(/^([A-E])[\.\)\s\:\-]\s*(.*)/i) || ansContent.match(/^([A-E])$/i);
+            const letterMatch = ansContent.match(/^(?:[\*\-\+]?\s*)?(?:\(([A-E])\)|([A-E])[\.\)\s\:\-])\s*(.*)/i) || ansContent.match(/^([A-E])$/i);
             if (letterMatch) {
-              q.correctAnswer = letterMatch[1].toUpperCase();
-              q.explanation = letterMatch[2] ? letterMatch[2].replace(/[\(\)]/g, "").trim() : "No explanation provided.";
+              const letterChoice = (letterMatch[1] || letterMatch[2] || letterMatch[0]).toUpperCase();
+              const expText = letterMatch[3] !== undefined ? letterMatch[3] : (letterMatch[2] || "");
+              q.correctAnswer = letterChoice;
+              q.explanation = expText ? expText.replace(/[\(\)]/g, "").trim() : "No explanation provided.";
             } else {
               // Try matching answer text to one of the options
               let foundLetter = null;
               if (q.options && q.options.length > 0) {
                 for (let opt of q.options) {
-                  const optMatch = opt.match(/^([A-E])[\.\)]\s*(.*)/i);
+                  const optMatch = opt.match(/^(?:[\*\-\+]?\s*)?(?:\(([A-E])\)|([A-E])[\.\)])\s*(.*)/i);
                   if (optMatch) {
-                    const optText = optMatch[2].toLowerCase().trim();
-                    if (ansContent.toLowerCase().includes(optText) || optText.includes(ansContent.toLowerCase().trim())) {
-                      foundLetter = optMatch[1].toUpperCase();
+                    const optLetter = (optMatch[1] || optMatch[2]).toUpperCase();
+                    const optText = (optMatch[3] || "").toLowerCase().trim();
+                    if (ansContent.toLowerCase().includes(optText) || (optText && optText.includes(ansContent.toLowerCase().trim()))) {
+                      foundLetter = optLetter;
                       break;
                     }
                   }
@@ -2619,10 +2757,10 @@ document.addEventListener("DOMContentLoaded", () => {
           } else if (q.type === "true-false-cluster") {
             q.explanation = "Evaluate each statement as True or False.";
             // Parse inline statements e.g. "A-True, B-False, C-True, D-True" or "A: True, B: False"
-            const inlineClusterMatches = [...ansContent.matchAll(/([A-D])\s*[\:\-\–—\)\.]\s*(True|False)/gi)];
+            const inlineClusterMatches = [...ansContent.matchAll(/(?:\(([A-D])\)|([A-D]))\s*[\:\-\–—\)\.]\s*(True|False)/gi)];
             for (let m of inlineClusterMatches) {
-              const letter = m[1].toUpperCase();
-              const val = m[2].toLowerCase() === "true" ? "True" : "False";
+              const letter = (m[1] || m[2]).toUpperCase();
+              const val = m[3].toLowerCase() === "true" ? "True" : "False";
               const stmt = q.statements.find(s => s.id === letter);
               if (stmt) stmt.correctAnswer = val;
             }
@@ -2634,10 +2772,10 @@ document.addEventListener("DOMContentLoaded", () => {
           if (q.type === "open") {
             q.modelAnswer += " " + line;
           } else if (q.type === "true-false-cluster") {
-            const clusterMatch = line.match(/^(?:[o•\*\-\+\>\~]\s*)?([A-D])[\)\.]\s*(True|False)/i);
+            const clusterMatch = line.match(/^(?:[o•\*\-\+\>\~]\s*)?(?:\(([A-D])\)|([A-D]))[\)\.\:\-]?\s*(True|False)/i);
             if (clusterMatch) {
-              const letter = clusterMatch[1].toUpperCase();
-              const val = clusterMatch[2].toLowerCase() === "true" ? "True" : "False";
+              const letter = (clusterMatch[1] || clusterMatch[2]).toUpperCase();
+              const val = clusterMatch[3].toLowerCase() === "true" ? "True" : "False";
               const stmt = q.statements.find(s => s.id === letter);
               if (stmt) stmt.correctAnswer = val;
             }
@@ -2902,6 +3040,7 @@ document.addEventListener("DOMContentLoaded", () => {
       selfGradedScores: state.selfGradedScores,
       isExamSubmitted: state.isExamSubmitted,
       examMode: state.examMode,
+      currentAttemptTimestamp: state.currentAttemptTimestamp || null,
       reviewPagination: state.reviewPagination || {},
       activeScreen: document.querySelector(".screen.active")?.id || "screen-welcome"
     };
@@ -2933,6 +3072,7 @@ document.addEventListener("DOMContentLoaded", () => {
           state.selfGradedScores = parsed.selfGradedScores || {};
           state.isExamSubmitted = !!parsed.isExamSubmitted;
           state.examMode = parsed.examMode || "Full Simulation";
+          state.currentAttemptTimestamp = parsed.currentAttemptTimestamp || null;
         }
         // Migrate to separate keys
         saveQuestionsPool();
@@ -2965,13 +3105,16 @@ document.addEventListener("DOMContentLoaded", () => {
             state.reviewPagination = parsedExam.reviewPagination || {};
             state.isExamSubmitted = !!parsedExam.isExamSubmitted;
             state.examMode = parsedExam.examMode || "Full Simulation";
+            state.currentAttemptTimestamp = parsedExam.currentAttemptTimestamp || null;
           }
         }
       }
       
       // Always sanitize pool and active exam questions on load
       sanitizeQuestionPool(state.questionsPool);
-      sanitizeQuestionPool(state.questions);
+      if (state.questions && state.questions.length === 70) {
+        sanitizeQuestionPool(state.questions);
+      }
       saveQuestionsPool();
       updateUploadedSimulationsCount();
 
@@ -4262,10 +4405,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Expose global methods for testing & debugging
   const globalContext = typeof window !== "undefined" ? window : (typeof globalThis !== "undefined" ? globalThis : this);
   globalContext.getModuleFromQuestionId = getModuleFromQuestionId;
+  globalContext.formatQuestionTypeLabel = formatQuestionTypeLabel;
+  globalContext.getModuleClass = getModuleClass;
   globalContext.cleanQuestionPromptText = cleanQuestionPromptText;
   globalContext.sanitizeQuestion = sanitizeQuestion;
   globalContext.sanitizeQuestionPool = sanitizeQuestionPool;
   globalContext.parseMockExamText = parseMockExamText;
+  globalContext.initializeSelfGradingList = initializeSelfGradingList;
+  globalContext.renderAutoReviewCard = renderAutoReviewCard;
+  globalContext.calculateScores = calculateScores;
   globalContext.generateAndDownloadResultsPDF = generateAndDownloadResultsPDF;
   globalContext.generateResultsPDFBlob = generateResultsPDFBlob;
   globalContext.evaluateQuestionResult = evaluateQuestionResult;
