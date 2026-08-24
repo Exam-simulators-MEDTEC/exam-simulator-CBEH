@@ -1282,6 +1282,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
     
     state.isExamSubmitted = true;
+    state.reviewPagination = {};
     
     // Clear saved progress on submission
     localStorage.removeItem("cbeh_saved_simulation");
@@ -1412,61 +1413,153 @@ document.addEventListener("DOMContentLoaded", () => {
     const oldControl = container.querySelector(".review-pagination-control");
     if (oldControl) oldControl.remove();
 
+    // Robust card selector matching all question review card variants
     const cards = Array.from(container.children).filter(child => 
+      child.classList.contains("review-item-card") || 
+      child.classList.contains("grading-item-card") || 
       child.classList.contains("question-card") || 
-      child.classList.contains("review-card") || 
-      child.classList.contains("grading-item-card")
+      child.classList.contains("review-card")
     );
     
-    if (cards.length <= 3) return;
+    if (cards.length <= 3) {
+      cards.forEach(card => {
+        card.style.display = "flex";
+      });
+      return;
+    }
 
-    // Hide cards past index 2 (4th card onwards)
+    state.reviewPagination = state.reviewPagination || {};
+    const isExpanded = !!state.reviewPagination[listContainerId];
+    const remainingCount = cards.length - 3;
+
+    // Apply visibility based on expanded state
     cards.forEach((card, idx) => {
       if (idx >= 3) {
-        card.style.display = "none";
+        card.style.display = isExpanded ? "flex" : "none";
+        if (isExpanded) {
+          card.classList.add("review-card-revealed");
+        }
       } else {
         card.style.display = "flex";
       }
     });
 
+    // Create Pagination Control Container
     const paginationBox = document.createElement("div");
     paginationBox.className = "review-pagination-control";
-    paginationBox.style.cssText = "display: flex; flex-direction: column; align-items: center; gap: 0.75rem; margin: 1.5rem 0 1rem 0; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); border-radius: 12px;";
+    paginationBox.setAttribute("role", "region");
+    paginationBox.setAttribute("aria-label", "Review questions pagination");
 
-    const remainingCount = cards.length - 3;
+    // Primary Toggle Button
     const btnShowMore = document.createElement("button");
     btnShowMore.type = "button";
-    btnShowMore.className = "btn btn-primary";
-    btnShowMore.style.cssText = "display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; padding: 0.5rem 1.25rem; border-radius: 8px;";
-    btnShowMore.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-        <polyline points="6 9 12 15 18 9"></polyline>
-      </svg>
-      <span>Show More Questions (${remainingCount} remaining)</span>
-    `;
+    btnShowMore.id = `btn-show-more-${listContainerId}`;
+    btnShowMore.className = "btn btn-primary btn-show-more";
+    btnShowMore.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+    btnShowMore.setAttribute("aria-controls", listContainerId);
 
-    let isExpanded = false;
+    const downChevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>`;
+    const upChevronSvg = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><polyline points="18 15 12 9 6 15"></polyline></svg>`;
+
+    btnShowMore.innerHTML = isExpanded 
+      ? `${upChevronSvg}<span>Show Fewer Questions</span>` 
+      : `${downChevronSvg}<span>Show More Questions (${remainingCount} remaining)</span>`;
+
     btnShowMore.addEventListener("click", () => {
-      isExpanded = !isExpanded;
+      const nextState = !state.reviewPagination[listContainerId];
+      state.reviewPagination[listContainerId] = nextState;
+      btnShowMore.setAttribute("aria-expanded", nextState ? "true" : "false");
+      
       cards.forEach((card, idx) => {
         if (idx >= 3) {
-          card.style.display = isExpanded ? "flex" : "none";
+          card.style.display = nextState ? "flex" : "none";
+          if (nextState) {
+            card.classList.add("review-card-revealed");
+          }
         }
       });
-      btnShowMore.innerHTML = isExpanded ? `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-          <polyline points="18 15 12 9 6 15"></polyline>
-        </svg>
-        <span>Show Fewer Questions</span>
-      ` : `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-        <span>Show More Questions (${remainingCount} remaining)</span>
-      `;
+
+      btnShowMore.innerHTML = nextState 
+        ? `${upChevronSvg}<span>Show Fewer Questions</span>` 
+        : `${downChevronSvg}<span>Show More Questions (${remainingCount} remaining)</span>`;
+      
+      if (!nextState) {
+        // Smoothly scroll back to top of container on collapse
+        container.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     });
 
+    // Compact Action Buttons Container
+    const compactActions = document.createElement("div");
+    compactActions.className = "results-compact-actions";
+
+    // 1. Return Home Button
+    const btnCompactHome = document.createElement("button");
+    btnCompactHome.type = "button";
+    btnCompactHome.id = `btn-compact-home-${listContainerId}`;
+    btnCompactHome.className = "btn btn-secondary btn-compact-action btn-compact-home";
+    btnCompactHome.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      <span>Return Home</span>
+    `;
+    btnCompactHome.addEventListener("click", () => {
+      if (btnHomeResults) {
+        btnHomeResults.click();
+      } else {
+        resetExam();
+      }
+    });
+
+    // 2. Retake Another Exam Button
+    const btnCompactRestart = document.createElement("button");
+    btnCompactRestart.type = "button";
+    btnCompactRestart.id = `btn-compact-restart-${listContainerId}`;
+    btnCompactRestart.className = "btn btn-primary btn-compact-action btn-compact-restart";
+    btnCompactRestart.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+      </svg>
+      <span>Retake Another Exam</span>
+    `;
+    btnCompactRestart.addEventListener("click", () => {
+      if (btnRestartExam) {
+        btnRestartExam.click();
+      } else {
+        resetExam();
+      }
+    });
+
+    // 3. Download Study Summary (PDF) Button
+    const btnCompactPdf = document.createElement("button");
+    btnCompactPdf.type = "button";
+    btnCompactPdf.id = `btn-compact-pdf-${listContainerId}`;
+    btnCompactPdf.className = "btn btn-secondary btn-compact-action btn-compact-pdf";
+    btnCompactPdf.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+        <polyline points="7 10 12 15 17 10"></polyline>
+        <line x1="12" y1="15" x2="12" y2="3"></line>
+      </svg>
+      <span>Download Study Summary (PDF)</span>
+    `;
+    btnCompactPdf.addEventListener("click", () => {
+      if (typeof generateAndDownloadResultsPDF === "function") {
+        generateAndDownloadResultsPDF();
+      } else if (downloadPdfBtn) {
+        downloadPdfBtn.click();
+      }
+    });
+
+    compactActions.appendChild(btnCompactHome);
+    compactActions.appendChild(btnCompactRestart);
+    compactActions.appendChild(btnCompactPdf);
+
     paginationBox.appendChild(btnShowMore);
+    paginationBox.appendChild(compactActions);
+
     container.appendChild(paginationBox);
   }
 
@@ -1868,6 +1961,7 @@ document.addEventListener("DOMContentLoaded", () => {
     state.answers = {};
     state.flags = {};
     state.selfGradedScores = {};
+    state.reviewPagination = {};
     state.isExamSubmitted = false;
     
     localStorage.removeItem("cbeh_active_exam_state_v1");
@@ -2808,6 +2902,7 @@ document.addEventListener("DOMContentLoaded", () => {
       selfGradedScores: state.selfGradedScores,
       isExamSubmitted: state.isExamSubmitted,
       examMode: state.examMode,
+      reviewPagination: state.reviewPagination || {},
       activeScreen: document.querySelector(".screen.active")?.id || "screen-welcome"
     };
     localStorage.setItem("cbeh_active_exam_state_v1", JSON.stringify(examState));
@@ -2867,6 +2962,7 @@ document.addEventListener("DOMContentLoaded", () => {
             state.flags = parsedExam.flags || {};
             state.timeLeft = parsedExam.timeLeft || 90 * 60;
             state.selfGradedScores = parsedExam.selfGradedScores || {};
+            state.reviewPagination = parsedExam.reviewPagination || {};
             state.isExamSubmitted = !!parsedExam.isExamSubmitted;
             state.examMode = parsedExam.examMode || "Full Simulation";
           }
@@ -4176,6 +4272,8 @@ document.addEventListener("DOMContentLoaded", () => {
   globalContext.matchQuestionAgainstFilter = matchQuestionAgainstFilter;
   globalContext.dbFilterState = dbFilterState;
   globalContext.resetAllDbFilters = resetAllDbFilters;
+  globalContext.applyReviewListPagination = applyReviewListPagination;
+  globalContext.state = state;
 
   // Invoke state loading and manager UI render on startup
   loadAppState();
