@@ -2112,33 +2112,27 @@ document.addEventListener("DOMContentLoaded", () => {
     return text;
   }
 
+  function getModuleFromQuestionId(id) {
+    const parsedId = parseInt(id, 10);
+    if (isNaN(parsedId) || parsedId <= 0) return "Cell Biology";
+    const normId = ((parsedId - 1) % 70) + 1;
+    if (normId >= 67) return "Interdisciplinary";
+    if (normId >= 55) return "Embryology";
+    if (normId >= 31) return "Histology";
+    return "Cell Biology";
+  }
+
   // Sanitize misclassified True/False Clusters, option prefixes, and embedded headers
   function sanitizeQuestion(q) {
     if (!q) return;
 
-    // 0. Clean separator lines, spilled module headers, and fallback module assignment by ID
+    // Deterministic module assignment based on exact 70-question CBEH structure
+    if (q.id !== undefined && q.id !== null) {
+      q.module = getModuleFromQuestionId(q.id);
+    }
+
+    // Clean separator lines and spilled module header titles from question prompt
     if (typeof q.question === "string") {
-      const upperQ = q.question.toUpperCase();
-      
-      // Strict fallback module assignment by standard CBEH question ID ranges if unspecified or default
-      if (q.id >= 67 && q.id <= 70) {
-        q.module = "Interdisciplinary";
-      } else if (q.id >= 55 && q.id <= 66 && (!q.module || q.module === "Cell Biology")) {
-        q.module = "Embryology";
-      } else if (q.id >= 31 && q.id <= 54 && (!q.module || q.module === "Cell Biology")) {
-        q.module = "Histology";
-      } else if (q.id >= 1 && q.id <= 30 && !q.module) {
-        q.module = "Cell Biology";
-      }
-
-      if (upperQ.includes("INTERDISCIPLINARY") || upperQ.includes("MODULE 4:")) {
-        q.module = "Interdisciplinary";
-      } else if (upperQ.includes("EMBRYOLOGY") || upperQ.includes("MODULE 3:")) {
-        q.module = "Embryology";
-      } else if (upperQ.includes("HISTOLOGY") || upperQ.includes("MODULE 2:")) {
-        q.module = "Histology";
-      }
-
       // Strip section divider lines and header blocks from question prompt
       q.question = q.question.replace(/={3,}/g, "");
       q.question = q.question.replace(/-{3,}/g, "");
@@ -2264,7 +2258,7 @@ document.addEventListener("DOMContentLoaded", () => {
           currentQuestion = {
             id: id,
             type: type,
-            module: currentModule,
+            module: getModuleFromQuestionId(id),
             question: promptText,
             options: [],
             leftItems: [],
