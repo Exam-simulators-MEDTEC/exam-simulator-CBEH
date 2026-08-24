@@ -146,6 +146,20 @@ document.addEventListener("DOMContentLoaded", () => {
     window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
   }
 
+  // Safe localStorage helper
+  function safeGetLocalStorageArray(key) {
+    try {
+      const val = localStorage.getItem(key);
+      if (!val) return [];
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.warn(`Corrupted localStorage key "${key}", safely resetting to []`, e);
+      try { localStorage.removeItem(key); } catch (_) {}
+      return [];
+    }
+  }
+
   // Application State
   const state = {
     questions: [], // Currently active exam questions (dynamically selected)
@@ -154,8 +168,8 @@ document.addEventListener("DOMContentLoaded", () => {
     currentQuestionIndex: 0,
     answers: {}, // Maps question ID to user response
     flags: {}, // Maps question ID to boolean
-    bookmarks: JSON.parse(localStorage.getItem("cbeh_bookmarks")) || [],
-    history: JSON.parse(localStorage.getItem("cbeh_history")) || [],
+    bookmarks: safeGetLocalStorageArray("cbeh_bookmarks"),
+    history: safeGetLocalStorageArray("cbeh_history"),
     timeLeft: 90 * 60, // 90 minutes in seconds
     timerInterval: null,
     selfGradedScores: {}, // Maps open question ID to 1 or 0 (defaults to 0)
@@ -687,6 +701,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     localStorage.setItem("cbeh_current_screen", screenId);
     window.scrollTo(0, 0);
+
+    if (screenId === "screen-welcome") {
+      const activeTab = document.querySelector(".welcome-tab-btn.active");
+      if (activeTab && activeTab.id === "welcome-tab-analytics" && typeof updateAnalyticsUI === "function") {
+        updateAnalyticsUI();
+      }
+    }
   }
 
   function updateTimerDisplay() {
@@ -3164,135 +3185,894 @@ document.addEventListener("DOMContentLoaded", () => {
     return false;
   }
 
-  // Analytics Dashboard Calculation & Render Engine
-  function updateAnalyticsUI() {
-    const avgGradeEl = document.getElementById("analytics-avg-grade");
-    const passRateEl = document.getElementById("analytics-pass-rate");
-    const attemptsEl = document.getElementById("analytics-attempts");
-    const calloutEl = document.getElementById("analytics-callout-msg");
-    const historyList = document.getElementById("analytics-history-list");
-    
-    if (!avgGradeEl) return;
-    
-    if (!state.history || state.history.length === 0) {
-      avgGradeEl.textContent = "-- / 30";
-      passRateEl.textContent = "--%";
-      attemptsEl.textContent = "0";
-      calloutEl.innerHTML = `<p style="margin: 0; text-align: center; color: var(--text-muted);">Complete an exam to see your weakest vs strongest module.</p>`;
-      historyList.innerHTML = `<p class="text-muted" style="text-align: center; padding: 1rem;">No exam attempts recorded yet.</p>`;
-      return;
+  // ==========================================
+  // EXAM ANALYTICS & WEAK SPOT CALCULATION ENGINE
+  // ==========================================
+
+  function getModuleScoreEntry(moduleScoresObj, standardModName) {
+    if (!moduleScoresObj || typeof moduleScoresObj !== "object") return null;
+    if (moduleScoresObj[standardModName] && typeof moduleScoresObj[standardModName] === "object") {
+      return moduleScoresObj[standardModName];
     }
-    
-    attemptsEl.textContent = state.history.length;
-    
-    let passCount = 0;
-    let validGradeSum = 0;
-    let validGradeCount = 0;
-    
-    let totalModuleStats = {
-      "Cell Biology": { score: 0, total: 0 },
-      "Histology": { score: 0, total: 0 },
-      "Embryology": { score: 0, total: 0 },
-      "Interdisciplinary": { score: 0, total: 0 }
-    };
-    
-    historyList.innerHTML = "";
-    
-    const sortedHistory = [...state.history].sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    sortedHistory.forEach(attempt => {
-      if (attempt.isPassed) passCount++;
-      
-      let numGrade = parseFloat(attempt.grade.replace("L", ""));
-      if (!isNaN(numGrade)) {
-        if (attempt.grade === "30L") numGrade = 31;
-        validGradeSum += numGrade;
-        validGradeCount++;
+    const cleanStandard = standardModName.toLowerCase().replace(/[^a-z]/g, "");
+    for (const key of Object.keys(moduleScoresObj)) {
+      const cleanKey = key.toLowerCase().replace(/[^a-z]/g, "");
+      if (cleanKey === cleanStandard) {
+        return moduleScoresObj[key];
       }
-      
-      if (attempt.moduleScores) {
-        for (let mod in totalModuleStats) {
-          if (attempt.moduleScores[mod]) {
-            totalModuleStats[mod].score += attempt.moduleScores[mod].score;
-            totalModuleStats[mod].total += attempt.moduleScores[mod].total;
+      if ((cleanKey === "cb" || cleanKey === "cellbio") && cleanStandard === "cellbiology") return moduleScoresObj[key];
+      if ((cleanKey === "hist" || cleanKey === "histo") && cleanStandard === "histology") return moduleScoresObj[key];
+      if ((cleanKey === "emb" || cleanKey === "embryo") && cleanStandard === "embryology") return moduleScoresObj[key];
+      if ((cleanKey === "ind" || cleanKey === "inter") && cleanStandard === "interdisciplinary") return moduleScoresObj[key];
+    }
+    return null;
+  }
+
+  function formatAttemptGradeDisplay(attempt, tScore, tQs) {
+    if (!attempt || typeof attempt !== "object") {
+      return `Score: ${tScore} / ${tQs}`;
+    }
+    if (attempt.grade !== undefined && attempt.grade !== null) {
+      const gStr = String(attempt.grade).trim();
+      if (gStr !== "") {
+        const upper = gStr.toUpperCase();
+        if (upper.includes("30L") || upper.includes("LODE") || upper === "30 L" || upper === "30 E LODE") {
+          return "Grade: 30L";
+        }
+        if (upper === "FAIL" || upper === "RESPINTO" || upper === "BOCCIATO" || upper === "NON SUPERATO" || upper === "NON IDONEO") {
+          return `Status: ${gStr}`;
+        }
+        const numMatch = gStr.match(/(\d+(?:\.\d+)?)/);
+        if (numMatch) {
+          const num = parseFloat(numMatch[1]);
+          const numDisp = Number.isInteger(num) ? num : num.toFixed(1);
+          return `Grade: ${numDisp} / 30`;
+        }
+        return `Grade: ${gStr}`;
+      }
+    }
+    return `Score: ${tScore} / ${tQs}`;
+  }
+
+  function isAttemptPassed(attempt) {
+    if (!attempt || typeof attempt !== "object") return false;
+    if (typeof attempt.isPassed === "boolean") return attempt.isPassed;
+    if (typeof attempt.isPassed === "number") {
+      if (attempt.isPassed === 1) return true;
+      if (attempt.isPassed === 0) return false;
+    }
+    if (typeof attempt.isPassed === "string") {
+      const s = attempt.isPassed.trim().toLowerCase();
+      if (s === "true" || s === "pass" || s === "passed" || s === "met" || s === "1" || s === "superato" || s === "approvato" || s === "idoneo") return true;
+      if (s === "false" || s === "fail" || s === "failed" || s === "not met" || s === "0" || s === "respinto" || s === "bocciato" || s === "non superato" || s === "non idoneo") return false;
+    }
+    const rawScore = typeof attempt.totalScore === "number" ? attempt.totalScore : parseFloat(attempt.totalScore);
+    const rawTotal = typeof attempt.totalQuestions === "number" && attempt.totalQuestions > 0 ? attempt.totalQuestions : parseFloat(attempt.totalQuestions);
+    const score = !isNaN(rawScore) && rawScore >= 0 ? rawScore : 0;
+    const total = !isNaN(rawTotal) && rawTotal > 0 ? rawTotal : 70;
+    const overallPassed = total > 0 ? (score / total) >= 0.6 : false;
+
+    // Check module threshold requirement (>= 50% per module) if moduleScores present
+    if (overallPassed && attempt.moduleScores && typeof attempt.moduleScores === "object") {
+      for (const mod of ["Cell Biology", "Histology", "Embryology", "Interdisciplinary"]) {
+        const mObj = getModuleScoreEntry(attempt.moduleScores, mod);
+        if (mObj && typeof mObj === "object") {
+          const mScore = typeof mObj.score === "number" ? mObj.score : parseFloat(mObj.score);
+          const mTotal = typeof mObj.total === "number" ? mObj.total : parseFloat(mObj.total);
+          if (!isNaN(mScore) && !isNaN(mTotal) && mTotal > 0) {
+            if ((mScore / mTotal) < 0.5) {
+              return false;
+            }
           }
         }
       }
-      
-      const dateStr = new Date(attempt.date).toLocaleString(undefined, {
-        year: 'numeric', month: 'short', day: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      });
-      
-      const itemHTML = `
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 6px; margin-bottom: 0.5rem; background: rgba(255,255,255,0.02);">
-          <div>
-            <div style="font-weight: 600; font-size: 0.9rem; color: #fff;">${attempt.mode} <span style="font-weight: normal; color: var(--text-muted); font-size: 0.8rem;">— ${dateStr}</span></div>
-            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Score: ${attempt.totalScore}/${attempt.totalQuestions}</div>
-          </div>
-          <div style="text-align: right;">
-            <div style="font-weight: 700; color: ${attempt.isPassed ? 'var(--color-primary)' : '#f87171'};">${attempt.isPassed ? 'PASS' : 'FAIL'}</div>
-            <div style="font-size: 0.9rem; font-weight: 600; color: #fff;">Grade: ${attempt.grade}</div>
-          </div>
-        </div>
-      `;
-      historyList.innerHTML += itemHTML;
-    });
-    
-    const passRate = (passCount / state.history.length) * 100;
-    passRateEl.textContent = `${passRate.toFixed(1)}%`;
-    passRateEl.style.color = passRate >= 60 ? 'var(--color-primary)' : '#f87171';
-    
-    if (validGradeCount > 0) {
-      let avgGrade = validGradeSum / validGradeCount;
-      if (avgGrade > 30) avgGrade = 30; // visually cap at 30
-      avgGradeEl.textContent = `${avgGrade.toFixed(1)} / 30`;
     }
-    
-    let strongestMod = "";
-    let strongestPct = -1;
-    let weakestMod = "";
-    let weakestPct = 101;
-    
-    for (let mod in totalModuleStats) {
-      if (totalModuleStats[mod].total > 0) {
-        let pct = (totalModuleStats[mod].score / totalModuleStats[mod].total) * 100;
-        if (pct > strongestPct) {
-          strongestPct = pct;
-          strongestMod = mod;
+
+    return overallPassed;
+  }
+
+  function calculateAnalyticsSummary(history) {
+    const summary = {
+      totalAttempts: 0,
+      passCount: 0,
+      failCount: 0,
+      passRate: 0,
+      avgScorePct: 0,
+      avgTotalScore: 0,
+      avgTotalQuestions: 0,
+      avgGrade: 0,
+      validGradeCount: 0,
+      totalQuestionsAnswered: 0,
+      totalCorrectAnswers: 0,
+      moduleStats: {
+        "Cell Biology": { score: 0, total: 0, accuracy: 0, attempts: 0, reqPass: 15 },
+        "Histology": { score: 0, total: 0, accuracy: 0, attempts: 0, reqPass: 12 },
+        "Embryology": { score: 0, total: 0, accuracy: 0, attempts: 0, reqPass: 6 },
+        "Interdisciplinary": { score: 0, total: 0, accuracy: 0, attempts: 0, reqPass: 2 }
+      },
+      weakestModule: null,
+      weakestPct: null,
+      strongestModule: null,
+      strongestPct: null,
+      modulesBelowThreshold: [],
+      studyRecommendations: null
+    };
+
+    if (!Array.isArray(history) || history.length === 0) {
+      return summary;
+    }
+
+    const validHistory = history.filter(item => item && typeof item === "object");
+    if (validHistory.length === 0) {
+      return summary;
+    }
+
+    summary.totalAttempts = validHistory.length;
+
+    let validGradeSum = 0;
+    let cumulativeScore = 0;
+    let cumulativeTotalQs = 0;
+    let scorePctSum = 0;
+    let attemptsWithQuestionsCount = 0;
+
+    validHistory.forEach(attempt => {
+      const isPassed = isAttemptPassed(attempt);
+      if (isPassed) {
+        summary.passCount++;
+      } else {
+        summary.failCount++;
+      }
+
+      const rawScore = typeof attempt.totalScore === "number" ? attempt.totalScore : parseFloat(attempt.totalScore);
+      const rawQs = typeof attempt.totalQuestions === "number" ? attempt.totalQuestions : parseFloat(attempt.totalQuestions);
+
+      const tScore = !isNaN(rawScore) && rawScore >= 0 ? rawScore : 0;
+      const tQs = !isNaN(rawQs) && rawQs > 0 ? rawQs : 0;
+
+      cumulativeScore += tScore;
+      cumulativeTotalQs += tQs;
+
+      if (tQs > 0) {
+        scorePctSum += (tScore / tQs) * 100;
+        attemptsWithQuestionsCount++;
+      }
+
+      if (attempt.grade !== undefined && attempt.grade !== null) {
+        const cleanGradeStr = String(attempt.grade).trim().toUpperCase();
+        let numGrade = NaN;
+        if (cleanGradeStr.includes("30L") || cleanGradeStr.includes("LODE") || cleanGradeStr === "30 L" || cleanGradeStr === "30 E LODE") {
+          numGrade = 30;
+        } else {
+          const match = cleanGradeStr.match(/(\d+(?:\.\d+)?)/);
+          if (match) {
+            numGrade = parseFloat(match[1]);
+          }
         }
-        if (pct < weakestPct) {
-          weakestPct = pct;
-          weakestMod = mod;
+        if (!isNaN(numGrade) && numGrade >= 0) {
+          numGrade = Math.max(0, Math.min(30, numGrade));
+          validGradeSum += numGrade;
+          summary.validGradeCount++;
+        }
+      }
+
+      if (attempt.moduleScores && typeof attempt.moduleScores === "object") {
+        for (const mod in summary.moduleStats) {
+          const mObj = getModuleScoreEntry(attempt.moduleScores, mod);
+          if (mObj && typeof mObj === "object") {
+            const rawMScore = typeof mObj.score === "number" ? mObj.score : parseFloat(mObj.score);
+            const rawMTotal = typeof mObj.total === "number" ? mObj.total : parseFloat(mObj.total);
+            const mScore = !isNaN(rawMScore) && rawMScore >= 0 ? rawMScore : 0;
+            const mTotal = !isNaN(rawMTotal) && rawMTotal >= 0 ? rawMTotal : 0;
+
+            summary.moduleStats[mod].score += mScore;
+            summary.moduleStats[mod].total += mTotal;
+            if (mTotal > 0) {
+              summary.moduleStats[mod].attempts++;
+            }
+          }
+        }
+      }
+    });
+
+    summary.totalCorrectAnswers = cumulativeScore;
+    summary.totalQuestionsAnswered = cumulativeTotalQs;
+    summary.passRate = summary.totalAttempts > 0 ? (summary.passCount / summary.totalAttempts) * 100 : 0;
+    summary.avgScorePct = attemptsWithQuestionsCount > 0 ? scorePctSum / attemptsWithQuestionsCount : 0;
+    summary.avgTotalScore = summary.totalAttempts > 0 ? cumulativeScore / summary.totalAttempts : 0;
+    summary.avgTotalQuestions = summary.totalAttempts > 0 ? cumulativeTotalQs / summary.totalAttempts : 0;
+    summary.avgGrade = summary.validGradeCount > 0 ? validGradeSum / summary.validGradeCount : 0;
+
+    // Module Accuracies & Extremes
+    let minPct = 101;
+    let maxPct = -1;
+    let lowestMod = null;
+    let highestMod = null;
+
+    for (const mod in summary.moduleStats) {
+      const stats = summary.moduleStats[mod];
+      if (stats.total > 0) {
+        stats.accuracy = (stats.score / stats.total) * 100;
+        if (stats.accuracy < minPct) {
+          minPct = stats.accuracy;
+          lowestMod = mod;
+        }
+        if (stats.accuracy > maxPct) {
+          maxPct = stats.accuracy;
+          highestMod = mod;
+        }
+        if (stats.accuracy < 60) {
+          summary.modulesBelowThreshold.push({
+            module: mod,
+            accuracy: stats.accuracy,
+            score: stats.score,
+            total: stats.total
+          });
         }
       }
     }
-    
-    if (strongestMod && weakestMod) {
-      calloutEl.innerHTML = `
-        <div style="display: flex; justify-content: space-between; gap: 1rem; text-align: left;">
-          <div style="flex: 1;">
-            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Strongest Module</div>
-            <div style="font-weight: 600; color: var(--color-primary); margin-top: 0.25rem;">${strongestMod} (${strongestPct.toFixed(0)}%)</div>
+
+    // Sort modules below threshold ascending
+    summary.modulesBelowThreshold.sort((a, b) => a.accuracy - b.accuracy);
+
+    if (lowestMod !== null) {
+      summary.weakestModule = lowestMod;
+      summary.weakestPct = minPct;
+    }
+    if (highestMod !== null) {
+      summary.strongestModule = highestMod;
+      summary.strongestPct = maxPct;
+    }
+
+    if (summary.weakestModule) {
+      const isBelow60 = summary.weakestPct < 60;
+      summary.studyRecommendations = getModuleStudyRecommendations(summary.weakestModule, summary.weakestPct, isBelow60);
+    }
+
+    return summary;
+  }
+
+  function getModuleStudyRecommendations(moduleName, accuracy, isBelow60) {
+    const recommendationsMap = {
+      "Cell Biology": {
+        summaryBelow: "Cell Biology cumulative accuracy is currently below the 60% threshold. Focus on high-yield biochemical cascades, bioenergetics, and checkpoint cell cycle control.",
+        summaryAbove: "Solid performance across Cell Biology. Fine-tune membrane transport mechanisms and specialized receptor signaling pathways for top marks.",
+        topics: [
+          "Mitochondrial Bioenergetics: Chemiosmotic proton gradients, electron transport complexes I–IV, ATP synthase mechanism, and outer membrane permeabilization (Bax/Bak).",
+          "Endomembrane & Vesicular Transport: RER/SER functions, Golgi polarity (cis/medial/trans), COPI/COPII and clathrin coat proteins, and lysosomal targeting via M6P.",
+          "Cell Cycle & Checkpoint Regulation: Cyclin D-CDK4/6, Rb phosphorylation, E2F release, and p53/p21-mediated DNA damage responses.",
+          "Signal Transduction Pathways: GPCR cascades (cAMP/PKA, IP3/DAG/PKC) and Receptor Tyrosine Kinases (Ras-Raf-MEK-ERK & PI3K-Akt-mTOR)."
+        ]
+      },
+      "Histology": {
+        summaryBelow: "Histology cumulative accuracy is currently below the 60% threshold. Prioritize differential staining recognition, epithelial classifications, and tissue microarchitecture.",
+        summaryAbove: "Good accuracy in Histology. Focus on nuanced histological differential diagnosis and ultrastructural junctional specializations.",
+        topics: [
+          "Epithelial Tissues & Junctions: Simple vs stratified, transitional epithelium, and junctional complexes (zonula occludens, zonula adherens, macula adherens/desmosomes).",
+          "Connective & Supporting Tissues: Collagen fiber types (I in bone/skin, II in cartilage, III in reticular, IV in basal lamina) and osteon remodeling.",
+          "Muscle Tissue Differentiation: Skeletal vs cardiac (intercalated discs, diads) vs smooth muscle (dense bodies, calmodulin) and sarcomere band organization.",
+          "Nervous & Vascular Systems: Glial subtypes (astrocytes, oligodendrocytes, microglia, Schwann cells) and blood vessel tunic organization (intima, media, adventitia)."
+        ]
+      },
+      "Embryology": {
+        summaryBelow: "Embryology cumulative accuracy is currently below the 60% threshold. Concentrate on gastrulation, embryonic folding, and germ layer derivative mapping.",
+        summaryAbove: "Proficient understanding of Embryology. Refine knowledge of pharyngeal apparatus derivatives and organogenesis timelines.",
+        topics: [
+          "Gastrulation & 3rd-Week Development: Primitive streak dynamics, primitive node/notochord formation, and definitive trilaminar disc establishment.",
+          "Germ Layer Derivatives: Surface ectoderm vs neuroectoderm (neural tube & neural crest), paraxial (somites), intermediate, and lateral plate mesoderm.",
+          "Embryonic Folding & Coelom: Cephalocaudal and lateral embryonic folding, formation of primitive gut tube, and intraembryonic coelom subdivision.",
+          "Pharyngeal Apparatus & Organogenesis: Cranial nerve, skeletal, and arterial derivatives of pharyngeal arches 1 through 6, and heart tube looping."
+        ]
+      },
+      "Interdisciplinary": {
+        summaryBelow: "Interdisciplinary questions are currently below the 60% threshold. Focus on connecting cellular molecular mechanisms with organ-level pathology.",
+        summaryAbove: "Strong integration across disciplines. Continue linking genetic diseases and molecular defects to clinical histological presentations.",
+        topics: [
+          "Molecular Pathology Correlations: Primary ciliary dyskinesia (Kartagener syndrome), lysosomal storage diseases (Gaucher, Tay-Sachs), and collagen disorders.",
+          "Cell-ECM Integration & Anoikis: Integrin receptor signaling, focal adhesions, basement membrane laminin anchoring, and anoikis apoptosis triggers.",
+          "Developmental Anomalies & Teratology: Mechanisms of congenital malformations, neural tube closure defects, and teratogenic susceptibility windows.",
+          "Cross-System Physiological Integration: Interplay between endocrine hormone signaling, tissue remodeling, and epithelial-mesenchymal transitions (EMT)."
+        ]
+      }
+    };
+
+    const cleanMod = String(moduleName || "").trim();
+    const rec = recommendationsMap[cleanMod] || recommendationsMap["Cell Biology"];
+    const numAcc = typeof accuracy === "number" ? accuracy : (parseFloat(accuracy) || 0);
+
+    return {
+      module: cleanMod || "Cell Biology",
+      accuracy: numAcc,
+      isBelow60: !!isBelow60,
+      title: isBelow60 ? `Priority Weak Spot: ${cleanMod || "Cell Biology"}` : `Optimization Focus: ${cleanMod || "Cell Biology"}`,
+      summary: isBelow60 ? rec.summaryBelow : rec.summaryAbove,
+      topics: rec.topics
+    };
+  }
+
+  function getModuleBadgeTagAndClass(accuracy) {
+    const acc = typeof accuracy === "number" ? accuracy : (parseFloat(accuracy) || 0);
+    if (acc >= 75) {
+      return {
+        tagText: "Proficient",
+        tagClass: "tag-proficient",
+        statusClass: "status-proficient",
+        fillClass: "fill-proficient"
+      };
+    } else if (acc >= 60) {
+      return {
+        tagText: "Passing",
+        tagClass: "tag-passing",
+        statusClass: "status-passing",
+        fillClass: "fill-passing"
+      };
+    } else if (acc >= 50) {
+      return {
+        tagText: "Borderline",
+        tagClass: "tag-borderline",
+        statusClass: "status-borderline",
+        fillClass: "fill-borderline"
+      };
+    } else {
+      return {
+        tagText: "Needs Work",
+        tagClass: "tag-needs-work",
+        statusClass: "status-needs-work",
+        fillClass: "fill-needs-work"
+      };
+    }
+  }
+
+  function renderAnalyticsTrendChart(history) {
+    if (!Array.isArray(history) || history.length === 0) return "";
+    const validHistory = history.filter(h => h && typeof h === "object");
+    if (validHistory.length === 0) return "";
+
+    const parseDate = (d) => {
+      if (!d) return 0;
+      const t = new Date(d).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+
+    // Chronological order (oldest to newest)
+    const chronological = [...validHistory].sort((a, b) => parseDate(a.date) - parseDate(b.date));
+    const recentAttempts = chronological.slice(-10); // Show up to 10 latest
+
+    let barsHTML = "";
+    recentAttempts.forEach((att, idx) => {
+      const rawScore = typeof att.totalScore === "number" ? att.totalScore : parseFloat(att.totalScore);
+      const rawQs = typeof att.totalQuestions === "number" ? att.totalQuestions : parseFloat(att.totalQuestions);
+      const tScore = !isNaN(rawScore) && rawScore >= 0 ? rawScore : 0;
+      const tQs = !isNaN(rawQs) && rawQs > 0 ? rawQs : 70;
+      const pct = Math.round((tScore / tQs) * 100);
+      const isPass = isAttemptPassed(att);
+      const barHeight = Math.max(10, Math.min(100, pct));
+      
+      let dateLabel = `#${idx + 1}`;
+      if (att.date) {
+        const d = new Date(att.date);
+        if (!isNaN(d.getTime())) {
+          dateLabel = d.toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' });
+        }
+      }
+      const tooltipText = `Exam #${idx + 1}: ${tScore}/${tQs} (${pct}%) — ${isPass ? 'PASSED' : 'FAILED'}`;
+
+      barsHTML += `
+        <div class="trend-bar-column" title="${tooltipText}">
+          <span class="trend-bar-val">${pct}%</span>
+          <div class="trend-bar-track">
+            <div class="trend-bar-fill ${isPass ? 'pass' : 'fail'}" style="height: ${barHeight}%;"></div>
           </div>
-          <div style="flex: 1;">
-            <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Weakest Module</div>
-            <div style="font-weight: 600; color: #f87171; margin-top: 0.25rem;">${weakestMod} (${weakestPct.toFixed(0)}%)</div>
+          <span class="trend-bar-label">${dateLabel}</span>
+        </div>
+      `;
+    });
+
+    let trendTrajectoryText = "📊 Baseline Established";
+    if (recentAttempts.length >= 3) {
+      const first = recentAttempts[0];
+      const last = recentAttempts[recentAttempts.length - 1];
+
+      const s0 = typeof first.totalScore === "number" ? first.totalScore : (parseFloat(first.totalScore) || 0);
+      const q0 = typeof first.totalQuestions === "number" && first.totalQuestions > 0 ? first.totalQuestions : (parseFloat(first.totalQuestions) || 70);
+      const sLast = typeof last.totalScore === "number" ? last.totalScore : (parseFloat(last.totalScore) || 0);
+      const qLast = typeof last.totalQuestions === "number" && last.totalQuestions > 0 ? last.totalQuestions : (parseFloat(last.totalQuestions) || 70);
+
+      const firstScore = q0 > 0 ? (s0 / q0) * 100 : 0;
+      const lastScore = qLast > 0 ? (sLast / qLast) * 100 : 0;
+      const diff = lastScore - firstScore;
+
+      if (!isNaN(diff)) {
+        if (diff >= 5) {
+          trendTrajectoryText = `📈 Improving Trajectory (+${diff.toFixed(0)}%)`;
+        } else if (diff <= -5) {
+          trendTrajectoryText = `📉 Review Advised (${diff.toFixed(0)}%)`;
+        } else {
+          trendTrajectoryText = `📊 Steady Consistency`;
+        }
+      }
+    }
+
+    return `
+      <div class="analytics-section">
+        <div class="analytics-section-header">
+          <h4 class="analytics-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            <span>Score Progression Timeline</span>
+          </h4>
+          <span class="analytics-section-sub">${trendTrajectoryText}</span>
+        </div>
+        <div class="analytics-trends-card">
+          <div class="trend-bars-container scrollbar-styled">
+            ${barsHTML}
+          </div>
+          <div class="trend-summary-row">
+            <span>Showing last ${recentAttempts.length} attempt(s) (Oldest → Newest)</span>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #34d399;">
+                <span style="width: 8px; height: 8px; border-radius: 2px; background: #10b981;"></span> Pass (≥60%)
+              </span>
+              <span style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: #f87171;">
+                <span style="width: 8px; height: 8px; border-radius: 2px; background: #ef4444;"></span> Fail (<60%)
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Analytics Dashboard Master Render Engine
+  function updateAnalyticsUI() {
+    if (!Array.isArray(state.history)) {
+      state.history = safeGetLocalStorageArray("cbeh_history");
+    }
+
+    const dynamicContent = document.getElementById("analytics-dynamic-content");
+    const btnResetAnalytics = document.getElementById("btn-reset-analytics");
+    if (!dynamicContent) return;
+
+    const summary = calculateAnalyticsSummary(state.history);
+
+    // Update Reset History button disabled/enabled state
+    if (btnResetAnalytics) {
+      if (summary.totalAttempts === 0) {
+        btnResetAnalytics.disabled = true;
+        btnResetAnalytics.style.opacity = "0.5";
+        btnResetAnalytics.style.cursor = "not-allowed";
+      } else {
+        btnResetAnalytics.disabled = false;
+        btnResetAnalytics.style.opacity = "1";
+        btnResetAnalytics.style.cursor = "pointer";
+      }
+    }
+
+    // EMPTY STATE
+    if (summary.totalAttempts === 0) {
+      dynamicContent.innerHTML = `
+        <div class="analytics-empty-state">
+          <div class="empty-state-icon-wrapper">
+            <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+              <path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path>
+              <path d="M22 12A10 10 0 0 0 12 2v10z"></path>
+            </svg>
+          </div>
+          <h4>No Exam History Recorded</h4>
+          <p class="empty-state-desc">Complete a full 70-question simulation or a targeted module practice exam to track your cumulative accuracy, identify high-yield weak spots, and monitor progress.</p>
+          <button id="btn-analytics-take-exam" class="btn btn-primary btn-analytics-cta">
+            <span>Take Your First Exam</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+        </div>
+      `;
+
+      const btnTakeFirst = document.getElementById("btn-analytics-take-exam");
+      if (btnTakeFirst) {
+        btnTakeFirst.addEventListener("click", () => {
+          const practiceSelect = document.getElementById("practice-mode-select");
+          if (practiceSelect) {
+            practiceSelect.value = "standard";
+            practiceSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            practiceSelect.focus();
+          }
+          const btnStart = document.getElementById("btn-start-exam");
+          if (btnStart) {
+            btnStart.classList.add("btn-pulse");
+            if (typeof setTimeout === "function") {
+              setTimeout(() => btnStart.classList.remove("btn-pulse"), 1500);
+            }
+          }
+        });
+      }
+      return;
+    }
+
+    // FULL DASHBOARD WITH ATTEMPTS
+    // 1. Cumulative Metrics 4-Card Grid
+    const passRateFormatted = summary.passRate.toFixed(1);
+    const avgScoreFormatted = summary.avgScorePct.toFixed(1);
+    const avgGradeFormatted = summary.validGradeCount > 0 ? (summary.avgGrade >= 30 ? "30L" : summary.avgGrade.toFixed(1) + " / 30") : "-- / 30";
+    const avgPtsFormatted = `${summary.avgTotalScore.toFixed(1)} / ${Math.round(summary.avgTotalQuestions)} avg`;
+
+    const metricsGridHTML = `
+      <div class="analytics-metrics-grid">
+        <div class="analytics-metric-card">
+          <div class="analytics-metric-header">
+            <span class="analytics-metric-label">Total Exams</span>
+            <svg class="analytics-metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </div>
+          <div class="analytics-metric-value" id="analytics-attempts">${summary.totalAttempts}</div>
+          <div class="analytics-metric-sub" id="analytics-total-qs">${summary.totalQuestionsAnswered} questions attempted</div>
+        </div>
+
+        <div class="analytics-metric-card">
+          <div class="analytics-metric-header">
+            <span class="analytics-metric-label">Pass Rate</span>
+            <svg class="analytics-metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+          </div>
+          <div class="analytics-metric-value ${summary.passRate >= 60 ? 'highlight-pass' : 'highlight-fail'}" id="analytics-pass-rate">${passRateFormatted}%</div>
+          <div class="analytics-metric-sub" id="analytics-pass-count">${summary.passCount} Passed / ${summary.failCount} Failed</div>
+        </div>
+
+        <div class="analytics-metric-card">
+          <div class="analytics-metric-header">
+            <span class="analytics-metric-label">Average Score</span>
+            <svg class="analytics-metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <div class="analytics-metric-value highlight-accent" id="analytics-avg-score">${avgScoreFormatted}%</div>
+          <div class="analytics-metric-sub" id="analytics-avg-pts">${avgPtsFormatted}</div>
+        </div>
+
+        <div class="analytics-metric-card">
+          <div class="analytics-metric-header">
+            <span class="analytics-metric-label">Average Grade</span>
+            <svg class="analytics-metric-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"></path>
+            </svg>
+          </div>
+          <div class="analytics-metric-value" id="analytics-avg-grade">${avgGradeFormatted}</div>
+          <div class="analytics-metric-sub" id="analytics-grade-status">Academic Scale (Pass ≥ 18)</div>
+        </div>
+      </div>
+    `;
+
+    // 2. Module Accuracy Breakdown
+    const modulesConfig = [
+      { name: "Cell Biology", key: "cellbio", dotClass: "cellbio" },
+      { name: "Histology", key: "histology", dotClass: "histology" },
+      { name: "Embryology", key: "embryo", dotClass: "embryo" },
+      { name: "Interdisciplinary", key: "interdisciplinary", dotClass: "interdisciplinary" }
+    ];
+
+    let modulesCardsHTML = "";
+    modulesConfig.forEach(mod => {
+      const stats = summary.moduleStats[mod.name];
+      const acc = stats.accuracy;
+      const accFormatted = stats.total > 0 ? `${acc.toFixed(1)}%` : "N/A";
+      const styleMeta = getModuleBadgeTagAndClass(stats.total > 0 ? acc : 0);
+      const scoreDisp = Number.isInteger(stats.score) ? stats.score : stats.score.toFixed(1);
+      const totalDisp = Number.isInteger(stats.total) ? stats.total : stats.total.toFixed(1);
+
+      modulesCardsHTML += `
+        <div class="analytics-module-card ${styleMeta.statusClass}" id="module-card-${mod.key}">
+          <div class="module-card-top">
+            <div class="module-card-title">
+              <span class="module-dot ${mod.dotClass}"></span>
+              <span>${mod.name}</span>
+            </div>
+            <span class="module-badge-tag ${styleMeta.tagClass}">${stats.total > 0 ? styleMeta.tagText : 'No Data'}</span>
+          </div>
+          <div class="module-stat-row">
+            <div class="module-card-pct" id="module-acc-${mod.key}">${accFormatted}</div>
+            <div class="module-card-ratio" id="module-ratio-${mod.key}">${scoreDisp} / ${totalDisp} correct</div>
+          </div>
+          <div class="analytics-progress-bar">
+            <div class="analytics-progress-fill ${styleMeta.fillClass}" id="module-bar-${mod.key}" style="width: ${stats.total > 0 ? Math.min(100, Math.max(4, acc)) : 0}%;"></div>
+          </div>
+          <div class="module-card-foot">
+            <span>Pass Threshold: ≥ 50%</span>
+            <span>${stats.attempts} sim(s)</span>
+          </div>
+        </div>
+      `;
+    });
+
+    const modulesSectionHTML = `
+      <div class="analytics-section">
+        <div class="analytics-section-header">
+          <h4 class="analytics-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Module Accuracy Breakdown</span>
+          </h4>
+          <span class="analytics-section-sub">Cumulative accuracy across Cell Biology, Histology, Embryology & Interdisciplinary</span>
+        </div>
+        <div class="analytics-modules-grid" id="analytics-modules-grid">
+          ${modulesCardsHTML}
+        </div>
+      </div>
+    `;
+
+    // 3. Dedicated Weak Spot Alert & Study Recommendations Card
+    let weakSpotHTML = "";
+    if (summary.studyRecommendations) {
+      const rec = summary.studyRecommendations;
+      const isCritical = rec.isBelow60;
+      const cardVariant = isCritical ? "alert-variant" : "mastery-variant";
+      const badgeClass = isCritical ? "badge-critical" : "badge-success";
+      const badgeText = isCritical ? "Below 60% Threshold" : "Target Met (≥ 60%)";
+
+      let secondaryFocusHTML = "";
+      if (summary.modulesBelowThreshold.length > 1) {
+        const otherModules = summary.modulesBelowThreshold.slice(1).map(m => `
+          <span class="secondary-focus-pill">${m.module}: ${m.accuracy.toFixed(1)}%</span>
+        `).join("");
+        secondaryFocusHTML = `
+          <div class="secondary-focus-strip">
+            <span>Additional Focus Areas:</span>
+            ${otherModules}
+          </div>
+        `;
+      }
+
+      const topicsListHTML = rec.topics.map(t => `
+        <li class="weakspot-topic-item">
+          <span class="weakspot-topic-bullet">▸</span>
+          <span>${t}</span>
+        </li>
+      `).join("");
+
+      // Module select map
+      const selectMap = {
+        "Cell Biology": "cell-biology",
+        "Histology": "histology",
+        "Embryology": "embryology",
+        "Interdisciplinary": "interdisciplinary"
+      };
+      const selectVal = selectMap[rec.module] || "standard";
+
+      weakSpotHTML = `
+        <div class="analytics-section" id="analytics-callout-msg">
+          <div class="analytics-section-header">
+            <h4 class="analytics-section-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>Diagnostic Focus & Recommendations</span>
+            </h4>
+            <span class="analytics-section-sub">Targeted high-yield topics based on empirical attempt patterns</span>
+          </div>
+          <div class="weakspot-card ${cardVariant}" id="analytics-weakspot-card">
+            <div class="weakspot-header">
+              <div class="weakspot-icon-wrapper">
+                ${isCritical ? `
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="22" height="22">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                    <line x1="12" y1="9" x2="12" y2="13"></line>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                ` : `
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="22" height="22">
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                  </svg>
+                `}
+              </div>
+              <div class="weakspot-header-text">
+                <div class="weakspot-title-row">
+                  <h4 class="weakspot-title">${rec.title} (${rec.accuracy.toFixed(1)}% Accuracy)</h4>
+                  <span class="weakspot-badge ${badgeClass}">${badgeText}</span>
+                </div>
+                <p class="weakspot-desc">${rec.summary}</p>
+              </div>
+            </div>
+
+            <div class="weakspot-topics-container">
+              <div class="weakspot-topics-heading">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <polyline points="9 11 12 14 22 4"></polyline>
+                  <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+                </svg>
+                <span>High-Yield Revision Focus for ${rec.module}</span>
+              </div>
+              <ul class="weakspot-topics-list">
+                ${topicsListHTML}
+              </ul>
+            </div>
+
+            ${secondaryFocusHTML}
+
+            <div class="weakspot-actions-row">
+              <button class="btn-practice-weak-spot" data-target-mode="${selectVal}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+                <span>Launch ${rec.module} Focused Practice</span>
+              </button>
+            </div>
           </div>
         </div>
       `;
     }
+
+    // 4. Visual Score Progression Timeline Chart
+    const trendChartHTML = renderAnalyticsTrendChart(state.history);
+
+    // 5. Past Attempt History Log
+    const validHistory = (Array.isArray(state.history) ? state.history : []).filter(h => h && typeof h === "object");
+    const parseDate = (d) => {
+      if (!d) return 0;
+      const t = new Date(d).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+    const sortedHistory = [...validHistory].sort((a, b) => parseDate(b.date) - parseDate(a.date));
+    let historyItemsHTML = "";
+
+    sortedHistory.forEach((attempt, idx) => {
+      let dateStr = "Recent Attempt";
+      if (attempt.date) {
+        const d = new Date(attempt.date);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleString(undefined, {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          });
+        }
+      }
+
+      const rawScore = typeof attempt.totalScore === "number" ? attempt.totalScore : parseFloat(attempt.totalScore);
+      const rawQs = typeof attempt.totalQuestions === "number" ? attempt.totalQuestions : parseFloat(attempt.totalQuestions);
+      const tScore = !isNaN(rawScore) && rawScore >= 0 ? rawScore : 0;
+      const tQs = !isNaN(rawQs) && rawQs > 0 ? rawQs : 70;
+      const scorePct = Math.round((tScore / tQs) * 100);
+      const isPass = isAttemptPassed(attempt);
+      const gradeStr = formatAttemptGradeDisplay(attempt, tScore, tQs);
+
+      let chipsHTML = "";
+      if (attempt.moduleScores && typeof attempt.moduleScores === "object") {
+        const modChipMap = [
+          { name: "Cell Biology", label: "Cell Bio", cls: "chip-cellbio" },
+          { name: "Histology", label: "Hist", cls: "chip-histology" },
+          { name: "Embryology", label: "Emb", cls: "chip-embryo" },
+          { name: "Interdisciplinary", label: "Ind", cls: "chip-interdisciplinary" }
+        ];
+
+        chipsHTML = modChipMap.map(m => {
+          const mScoreObj = getModuleScoreEntry(attempt.moduleScores, m.name);
+          if (mScoreObj && typeof mScoreObj === "object") {
+            const rawMScore = typeof mScoreObj.score === "number" ? mScoreObj.score : parseFloat(mScoreObj.score);
+            const rawMTotal = typeof mScoreObj.total === "number" ? mScoreObj.total : parseFloat(mScoreObj.total);
+            const scoreVal = !isNaN(rawMScore) && rawMScore >= 0 ? rawMScore : 0;
+            const totalVal = !isNaN(rawMTotal) && rawMTotal >= 0 ? rawMTotal : 0;
+            if (totalVal > 0) {
+              const mPct = Math.round((scoreVal / totalVal) * 100);
+              const chipScoreDisp = Number.isInteger(scoreVal) ? scoreVal : scoreVal.toFixed(1);
+              const chipTotalDisp = Number.isInteger(totalVal) ? totalVal : totalVal.toFixed(1);
+              return `<span class="history-module-chip ${m.cls}">${m.label}: ${chipScoreDisp}/${chipTotalDisp} (${mPct}%)</span>`;
+            }
+          }
+          return "";
+        }).filter(Boolean).join("");
+      }
+
+      historyItemsHTML += `
+        <div class="history-item-card" id="history-attempt-${idx}">
+          <div class="history-item-top">
+            <div class="history-item-mode">
+              ${attempt.mode || "Full Simulation"}
+              <span class="history-item-date">— ${dateStr}</span>
+            </div>
+            <span class="history-item-badge ${isPass ? 'pass' : 'fail'}">${isPass ? 'PASS' : 'FAIL'}</span>
+          </div>
+          <div class="history-item-mid">
+            <span class="history-score-text">Total Score: <strong>${tScore} / ${tQs}</strong> (${scorePct}%)</span>
+            <span class="history-grade-text">${gradeStr}</span>
+          </div>
+          ${chipsHTML ? `<div class="history-chips-row">${chipsHTML}</div>` : ''}
+        </div>
+      `;
+    });
+
+    const historySectionHTML = `
+      <div class="analytics-section">
+        <div class="analytics-section-header">
+          <h4 class="analytics-section-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 14 14"></polyline>
+            </svg>
+            <span>Attempt History Log</span>
+          </h4>
+          <span class="analytics-section-sub">Showing ${sortedHistory.length} recorded simulation(s)</span>
+        </div>
+        <div class="analytics-history-list scrollbar-styled" id="analytics-history-list">
+          ${historyItemsHTML}
+        </div>
+      </div>
+    `;
+
+    // Assemble Full Dashboard
+    dynamicContent.innerHTML = `
+      ${metricsGridHTML}
+      ${modulesSectionHTML}
+      ${weakSpotHTML}
+      ${trendChartHTML}
+      ${historySectionHTML}
+    `;
+
+    // Setup interactive event listeners
+    const practiceButtons = dynamicContent.querySelectorAll(".btn-practice-weak-spot");
+    practiceButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const targetMode = btn.getAttribute("data-target-mode");
+        const practiceSelect = document.getElementById("practice-mode-select");
+        if (practiceSelect && targetMode) {
+          practiceSelect.value = targetMode;
+          practiceSelect.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          practiceSelect.focus();
+        }
+        const btnStart = document.getElementById("btn-start-exam");
+        if (btnStart) {
+          btnStart.classList.add("btn-pulse");
+          if (typeof setTimeout === "function") {
+            setTimeout(() => btnStart.classList.remove("btn-pulse"), 1500);
+          }
+        }
+      });
+    });
   }
 
-  // Analytics Reset Trigger
+  // Analytics Reset Trigger with Safe Confirmation
   const btnResetAnalytics = document.getElementById("btn-reset-analytics");
   if (btnResetAnalytics) {
     btnResetAnalytics.addEventListener("click", async () => {
-      const confirmReset = await customConfirm("Are you sure you want to delete all your exam statistics and history? This cannot be undone.", "Reset History", "Cancel");
+      if (btnResetAnalytics.disabled || !Array.isArray(state.history) || state.history.length === 0) return;
+      const confirmReset = await customConfirm(
+        "Are you sure you want to delete all your exam statistics and simulation history?\nThis action cannot be undone.",
+        "Reset History",
+        "Cancel"
+      );
       if (confirmReset) {
         state.history = [];
         localStorage.removeItem("cbeh_history");
         updateAnalyticsUI();
+      }
+    });
+  }
+
+  // Multi-tab cross-broadcast storage synchronization
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("storage", (e) => {
+      if (e && e.key === "cbeh_history") {
+        state.history = safeGetLocalStorageArray("cbeh_history");
+        if (typeof updateAnalyticsUI === "function") {
+          updateAnalyticsUI();
+        }
+      } else if (e && e.key === "cbeh_bookmarks") {
+        state.bookmarks = safeGetLocalStorageArray("cbeh_bookmarks");
+        if (typeof renderBookmarksList === "function") {
+          renderBookmarksList();
+        }
       }
     });
   }
@@ -4421,6 +5201,15 @@ document.addEventListener("DOMContentLoaded", () => {
   globalContext.dbFilterState = dbFilterState;
   globalContext.resetAllDbFilters = resetAllDbFilters;
   globalContext.applyReviewListPagination = applyReviewListPagination;
+  globalContext.calculateAnalyticsSummary = calculateAnalyticsSummary;
+  globalContext.getModuleStudyRecommendations = getModuleStudyRecommendations;
+  globalContext.getModuleBadgeTagAndClass = getModuleBadgeTagAndClass;
+  globalContext.renderAnalyticsTrendChart = renderAnalyticsTrendChart;
+  globalContext.updateAnalyticsUI = updateAnalyticsUI;
+  globalContext.isAttemptPassed = isAttemptPassed;
+  globalContext.getModuleScoreEntry = getModuleScoreEntry;
+  globalContext.formatAttemptGradeDisplay = formatAttemptGradeDisplay;
+  globalContext.safeGetLocalStorageArray = safeGetLocalStorageArray;
   globalContext.state = state;
 
   // Invoke state loading and manager UI render on startup

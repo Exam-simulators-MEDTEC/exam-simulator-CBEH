@@ -134,36 +134,31 @@
           </div>
         </div>
 
-        <!-- PANEL 3: ANALYTICS DASHBOARD -->
+        <!-- PANEL 3: ANALYTICS & WEAK SPOT DASHBOARD -->
         <div id="welcome-panel-analytics" class="welcome-panel">
           <div class="analytics-dashboard">
-            <h3>Historical Progress & Analytics Dashboard</h3>
-            <div class="analytics-metrics-grid" style="display: flex; gap: 1rem; margin-top: 1rem;">
-              <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
-                <div class="metric-label" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Average Grade</div>
-                <div class="metric-value" id="analytics-avg-grade" style="font-size: 1.5rem; font-weight: 700; color: var(--color-primary); margin-top: 0.5rem;">-- / 30</div>
+            <div class="analytics-header">
+              <div class="analytics-title-group">
+                <div class="analytics-badge">Performance Intelligence</div>
+                <h3>Exam Analytics & Weak Spot Breakdown</h3>
+                <p class="analytics-subtitle">Track cumulative performance across all simulation attempts, identify module-level focus areas, and view your score trajectory.</p>
               </div>
-              <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
-                <div class="metric-label" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Pass Rate</div>
-                <div class="metric-value" id="analytics-pass-rate" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">--%</div>
-              </div>
-              <div class="metric-card" style="flex: 1; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
-                <div class="metric-label" style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase;">Attempts</div>
-                <div class="metric-value" id="analytics-attempts" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">0</div>
+              <div class="analytics-header-actions">
+                <button id="btn-reset-analytics" class="btn-analytics-reset" title="Reset all historical exam records with confirmation">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+                  <span>Reset History</span>
+                </button>
               </div>
             </div>
-            
-            <div class="analytics-callout" id="analytics-callout-msg" style="margin-top: 1rem; padding: 1rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 6px;">
-              <p style="margin: 0; text-align: center;">Complete an exam to see your weakest vs strongest module.</p>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
-              <h4 style="margin: 0; border: none; padding: 0;">Past Attempts</h4>
-              <button id="btn-reset-analytics" style="background: none; border: none; color: #f87171; font-size: 0.75rem; cursor: pointer; text-decoration: underline; padding: 0;">Reset Stats</button>
-            </div>
-            <div id="analytics-history-list" class="scrollbar-styled" style="max-height: 250px; overflow-y: auto; padding-right: 0.5rem;">
-              <!-- History items will be injected here -->
-              <p class="text-muted" style="text-align: center; padding: 1rem;">No exam attempts recorded yet.</p>
+
+            <!-- Dynamic Analytics Content Container -->
+            <div id="analytics-dynamic-content">
+              <!-- Rendered dynamically by updateAnalyticsUI -->
             </div>
           </div>
         </div>
@@ -575,6 +570,6 @@
   </div>
 
   <script src="questions.js"></script>
-  <script src="app.js?v=38"></script>
+  <script src="app.js?v=39"></script>
 </body>
 </html>
