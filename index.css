@@ -318,7 +318,7 @@ h1, h2, h3, h4, h5 {
 
 .welcome-card {
   width: 100%;
-  max-width: 720px;
+  max-width: 960px;
   padding: 3rem 2.5rem;
   text-align: center;
   animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -2908,63 +2908,74 @@ body[data-palette="slate"] .db-highlight {
 /* Module Accuracy Breakdown Grid */
 .analytics-modules-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1rem;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.15rem;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .analytics-module-card {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 1.1rem;
+  border-radius: 14px;
+  padding: 1.25rem 1.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.85rem;
   transition: all 0.25s ease;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .analytics-module-card:hover {
   background: var(--bg-card-hover);
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
 }
 
 .analytics-module-card.status-proficient {
-  border-left: 3px solid #10b981;
+  border-left: 4px solid #10b981;
 }
 
 .analytics-module-card.status-passing {
-  border-left: 3px solid #38bdf8;
+  border-left: 4px solid #38bdf8;
 }
 
 .analytics-module-card.status-borderline {
-  border-left: 3px solid #f59e0b;
+  border-left: 4px solid #f59e0b;
 }
 
 .analytics-module-card.status-needs-work {
-  border-left: 3px solid #ef4444;
+  border-left: 4px solid #ef4444;
 }
 
 .module-card-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .module-card-title {
   font-family: var(--font-heading);
-  font-size: 0.92rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #fff;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .module-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .module-dot.cellbio { background: #6366f1; }
@@ -2973,11 +2984,14 @@ body[data-palette="slate"] .db-highlight {
 .module-dot.interdisciplinary { background: #10b981; }
 
 .module-badge-tag {
-  font-size: 0.68rem;
+  font-size: 0.72rem;
   font-weight: 700;
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .module-badge-tag.tag-proficient {
@@ -3008,20 +3022,24 @@ body[data-palette="slate"] .db-highlight {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
 }
 
 .module-card-pct {
   font-family: var(--font-heading);
-  font-size: 1.5rem;
+  font-size: 1.6rem;
   font-weight: 800;
   color: #fff;
   line-height: 1;
+  white-space: nowrap;
 }
 
 .module-card-ratio {
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  font-weight: 500;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .analytics-progress-bar {
@@ -3059,8 +3077,10 @@ body[data-palette="slate"] .db-highlight {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   color: var(--text-muted);
+  gap: 0.5rem;
+  white-space: nowrap;
 }
 
 /* Weak Spot Alert & Study Recommendations Card */
