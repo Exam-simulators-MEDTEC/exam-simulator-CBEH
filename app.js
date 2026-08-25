@@ -22,7 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnResumeExam = document.getElementById("btn-resume-exam");
   if (btnResumeExam) {
     btnResumeExam.addEventListener("click", () => {
-      const saved = localStorage.getItem("cbeh_saved_simulation");
+      const saved = localStorage.getItem("cbeh_saved_simulation") || localStorage.getItem("cbeh_active_exam_state_v1");
       if (!saved) return;
       
       try {
@@ -31,25 +31,33 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!progress || !Array.isArray(progress.questions) || progress.questions.length === 0) {
           throw new Error("Saved simulation data is empty or invalid.");
         }
+        if (progress.isExamSubmitted) {
+          throw new Error("Saved simulation has already been submitted.");
+        }
         
         state.questions = progress.questions;
-        state.currentQuestionIndex = progress.currentQuestionIndex || 0;
+        state.questions.forEach(cleanQuestionText);
+        state.currentQuestionIndex = (typeof progress.currentQuestionIndex === "number" && progress.currentQuestionIndex >= 0 && progress.currentQuestionIndex < progress.questions.length) ? progress.currentQuestionIndex : 0;
         state.answers = progress.answers || {};
         state.flags = progress.flags || {};
-        state.timeLeft = progress.timeLeft || 90 * 60;
+        state.timeLeft = (typeof progress.timeLeft === "number" && progress.timeLeft >= 0) ? progress.timeLeft : 90 * 60;
         state.selfGradedScores = progress.selfGradedScores || {};
-        state.isExamSubmitted = !!progress.isExamSubmitted;
+        state.isExamSubmitted = false;
         state.examMode = progress.examMode || "Full Simulation";
+        state.currentAttemptTimestamp = progress.currentAttemptTimestamp || null;
         
         buildGridNavigator();
         renderQuestion();
         
+        updateTimerDisplay();
         startTimer();
         switchScreen("screen-exam");
+        saveActiveExamState();
       } catch (e) {
         console.error("Error restoring saved simulation:", e);
         customAlert("Failed to restore saved simulation progress.\n\nError: " + e.message);
         localStorage.removeItem("cbeh_saved_simulation");
+        localStorage.removeItem("cbeh_active_exam_state_v1");
         updateResumeButtonUI();
       }
     });
@@ -249,7 +257,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function selectOptionByIndex(index) {
     if (!state.questions || state.questions.length === 0) return;
     const q = state.questions[state.currentQuestionIndex];
-    if (!q) return;
+    if (!q || !answerInputsArea) return;
 
     if (q.type === "multiple-choice" || q.type === "true-false" || q.type === "fill-in-the-gap") {
       const optionItems = answerInputsArea.querySelectorAll(".option-item");
@@ -257,8 +265,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const targetItem = optionItems[index];
         const radio = targetItem.querySelector("input[type='radio']");
         if (radio) {
+          const allRadios = answerInputsArea.querySelectorAll("input[type='radio']");
+          allRadios.forEach(r => { if (r !== radio) r.checked = false; });
           radio.checked = true;
-          radio.dispatchEvent(new Event("change"));
+          radio.dispatchEvent(new Event("change", { bubbles: true }));
           targetItem.classList.add("shortcut-active");
           setTimeout(() => targetItem.classList.remove("shortcut-active"), 180);
         }
@@ -291,7 +301,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const activeEl = document.activeElement;
     if (activeEl) {
       const tagName = activeEl.tagName ? activeEl.tagName.toUpperCase() : "";
-      if (tagName === "INPUT" || tagName === "TEXTAREA" || tagName === "SELECT" || activeEl.isContentEditable) {
+      if (tagName === "TEXTAREA" || activeEl.isContentEditable) {
+        return;
+      }
+      if (tagName === "INPUT") {
+        const inputType = (activeEl.type || "text").toLowerCase();
+        if (["text", "search", "password", "email", "number", "url", "tel"].includes(inputType)) {
+          return;
+        }
+      }
+      if (tagName === "SELECT") {
         return;
       }
     }
@@ -341,8 +360,8 @@ document.addEventListener("DOMContentLoaded", () => {
         e.preventDefault();
         selectOptionByIndex(4);
       } else if (currentQ.type === "true-false") {
-        // True / False specific letter bindings
-        if (key === "t" || code === "KeyT") {
+        // True / False specific letter bindings (T/V for True/Vero, F for False/Falso)
+        if (key === "t" || key === "v" || code === "KeyT" || code === "KeyV") {
           e.preventDefault();
           selectOptionByIndex(0);
         } else if (key === "f" || code === "KeyF") {
@@ -541,7 +560,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // FLAG CHANGE EVENT
   flagCheckbox.addEventListener("change", (e) => {
+    if (!state.questions || state.questions.length === 0) return;
     const currentQuestion = state.questions[state.currentQuestionIndex];
+    if (!currentQuestion) return;
     state.flags[currentQuestion.id] = e.target.checked;
     updateNavigationGrid();
     saveActiveExamState();
@@ -550,17 +571,23 @@ document.addEventListener("DOMContentLoaded", () => {
   // BOOKMARK EVENT
   if (btnBookmarkQuestion) {
     btnBookmarkQuestion.addEventListener("click", () => {
+      if (!state.questions || state.questions.length === 0) return;
       const q = state.questions[state.currentQuestionIndex];
+      if (!q) return;
       const bookmarkIndex = state.bookmarks.findIndex(b => b.question === q.question);
       
       if (bookmarkIndex >= 0) {
         state.bookmarks.splice(bookmarkIndex, 1);
-        bookmarkIconSvg.setAttribute("fill", "none");
-        bookmarkIconSvg.style.color = "currentColor";
+        if (bookmarkIconSvg) {
+          bookmarkIconSvg.setAttribute("fill", "none");
+          bookmarkIconSvg.style.color = "currentColor";
+        }
       } else {
         state.bookmarks.push(JSON.parse(JSON.stringify(q)));
-        bookmarkIconSvg.setAttribute("fill", "var(--color-primary)");
-        bookmarkIconSvg.style.color = "var(--color-primary)";
+        if (bookmarkIconSvg) {
+          bookmarkIconSvg.setAttribute("fill", "var(--color-primary)");
+          bookmarkIconSvg.style.color = "var(--color-primary)";
+        }
       }
       
       localStorage.setItem("cbeh_bookmarks", JSON.stringify(state.bookmarks));
@@ -688,6 +715,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Initialize Timer
     startTimer();
+    
+    // Immediate state persistence
+    saveActiveExamState();
   }
 
   function switchScreen(screenId) {
@@ -711,14 +741,19 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateTimerDisplay() {
+    if (!examTimer) return;
     const minutes = Math.floor(state.timeLeft / 60);
     const seconds = state.timeLeft % 60;
     const formattedMinutes = minutes.toString().padStart(2, "0");
     const formattedSeconds = seconds.toString().padStart(2, "0");
     examTimer.textContent = `${formattedMinutes}:${formattedSeconds}`;
     
-    if (state.timeLeft < 5 * 60) { // 5 minutes warning
-      timerBox.classList.add("warning");
+    if (timerBox) {
+      if (state.timeLeft < 5 * 60) { // 5 minutes warning
+        timerBox.classList.add("warning");
+      } else {
+        timerBox.classList.remove("warning");
+      }
     }
   }
 
@@ -727,7 +762,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Timer is only active if the exam has NOT been submitted
     if (state.isExamSubmitted) {
-      examTimer.textContent = "--:--";
+      if (examTimer) examTimer.textContent = "--:--";
       return;
     }
     
@@ -739,6 +774,7 @@ document.addEventListener("DOMContentLoaded", () => {
       
       if (state.timeLeft <= 0) {
         clearInterval(state.timerInterval);
+        state.timerInterval = null;
         alert("Time is up! Submitting your exam.");
         submitExam();
       }
@@ -746,7 +782,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function buildGridNavigator() {
+    if (!questionsGridContainer) return;
     questionsGridContainer.innerHTML = "";
+    if (!state.questions || !Array.isArray(state.questions) || state.questions.length === 0) return;
     
     // Group questions by module
     const modules = ["Cell Biology", "Histology", "Embryology", "Interdisciplinary"];
@@ -755,7 +793,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Filter questions in this module
       const moduleQuestions = [];
       state.questions.forEach((q, idx) => {
-        if (q.module === moduleName) {
+        if (q && q.module === moduleName) {
           moduleQuestions.push({ q, idx });
         }
       });
@@ -798,10 +836,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function updateNavigationGrid() {
+    if (!questionsGridContainer) return;
+    if (!state.questions || !Array.isArray(state.questions) || state.questions.length === 0) return;
     const boxes = questionsGridContainer.querySelectorAll(".grid-box");
     boxes.forEach((box) => {
       const idx = parseInt(box.getAttribute("data-index"), 10);
       const q = state.questions[idx];
+      if (!q) return;
       box.classList.remove("active", "answered", "flagged");
       
       if (idx === state.currentQuestionIndex) {
@@ -893,7 +934,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // RENDER DYNAMIC INPUTS
   function renderQuestion() {
+    if (!state.questions || !Array.isArray(state.questions) || state.questions.length === 0) return;
     const q = state.questions[state.currentQuestionIndex];
+    if (!q) return;
     
     // Set Header Info
     questionIndexCounter.textContent = `Question ${q.id} of ${state.questions.length}`;
@@ -946,6 +989,7 @@ document.addEventListener("DOMContentLoaded", () => {
         radio.addEventListener("change", () => {
           // Remove selected class from all options
           optionsList.querySelectorAll(".option-item").forEach(item => item.classList.remove("selected"));
+          optionsList.querySelectorAll("input[type='radio']").forEach(r => { if (r !== radio) r.checked = false; });
           label.classList.add("selected");
           saveAnswer();
         });
@@ -984,6 +1028,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         radio.addEventListener("change", () => {
           optionsList.querySelectorAll(".option-item").forEach(item => item.classList.remove("selected"));
+          optionsList.querySelectorAll("input[type='radio']").forEach(r => { if (r !== radio) r.checked = false; });
           label.classList.add("selected");
           saveAnswer();
         });
@@ -1056,6 +1101,7 @@ document.addEventListener("DOMContentLoaded", () => {
         
         radio.addEventListener("change", () => {
           optionsList.querySelectorAll(".option-item").forEach(item => item.classList.remove("selected"));
+          optionsList.querySelectorAll("input[type='radio']").forEach(r => { if (r !== radio) r.checked = false; });
           label.classList.add("selected");
           
           const placeholder = document.getElementById(`gap-placeholder-${q.id}`);
@@ -1265,6 +1311,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handlePrevQuestion() {
+    if (!state.questions || state.questions.length === 0) return;
     if (state.currentQuestionIndex > 0) {
       saveAnswer();
       state.currentQuestionIndex--;
@@ -1273,6 +1320,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function handleNextQuestion() {
+    if (!state.questions || state.questions.length === 0) return;
     if (state.currentQuestionIndex < state.questions.length - 1) {
       saveAnswer();
       state.currentQuestionIndex++;
@@ -1281,7 +1329,9 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function saveAnswer() {
+    if (!state.questions || state.questions.length === 0 || !answerInputsArea) return;
     const q = state.questions[state.currentQuestionIndex];
+    if (!q) return;
     
     if (q.type === "multiple-choice" || q.type === "true-false" || q.type === "fill-in-the-gap") {
       const selectedRadio = answerInputsArea.querySelector("input[type='radio']:checked");
@@ -1315,13 +1365,15 @@ document.addEventListener("DOMContentLoaded", () => {
     
     if (state.timerInterval) {
       clearInterval(state.timerInterval);
+      state.timerInterval = null;
     }
     
     state.isExamSubmitted = true;
     state.reviewPagination = {};
     
-    // Clear saved progress on submission
+    // Clear saved progress on submission and synchronize submitted state
     localStorage.removeItem("cbeh_saved_simulation");
+    saveActiveExamState();
     updateResumeButtonUI();
     
     // Automatically set up the 16 open questions in the self-grading list
@@ -2000,6 +2052,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   function saveCurrentSimulationProgress() {
+    if (state.timerInterval) {
+      clearInterval(state.timerInterval);
+      state.timerInterval = null;
+    }
     const progressToSave = {
       questions: state.questions,
       currentQuestionIndex: state.currentQuestionIndex,
@@ -2008,17 +2064,42 @@ document.addEventListener("DOMContentLoaded", () => {
       timeLeft: state.timeLeft,
       selfGradedScores: state.selfGradedScores,
       isExamSubmitted: state.isExamSubmitted,
-      examMode: state.examMode
+      examMode: state.examMode,
+      currentAttemptTimestamp: state.currentAttemptTimestamp || null
     };
     localStorage.setItem("cbeh_saved_simulation", JSON.stringify(progressToSave));
+    saveActiveExamState();
     updateResumeButtonUI();
   }
 
   function updateResumeButtonUI() {
     const btnResumeExam = document.getElementById("btn-resume-exam");
     if (!btnResumeExam) return;
-    const hasActiveExam = (state.questions && state.questions.length > 0) || !!localStorage.getItem("cbeh_saved_simulation") || !!localStorage.getItem("cbeh_active_exam_state_v1");
-    if (hasActiveExam && !state.isExamSubmitted) {
+    
+    let hasSavedExam = false;
+    const savedSim = localStorage.getItem("cbeh_saved_simulation");
+    if (savedSim) {
+      try {
+        const parsed = JSON.parse(savedSim);
+        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0 && !parsed.isExamSubmitted) {
+          hasSavedExam = true;
+        }
+      } catch (_) {}
+    }
+    
+    const activeExam = localStorage.getItem("cbeh_active_exam_state_v1");
+    if (!hasSavedExam && activeExam) {
+      try {
+        const parsed = JSON.parse(activeExam);
+        if (parsed && Array.isArray(parsed.questions) && parsed.questions.length > 0 && !parsed.isExamSubmitted) {
+          hasSavedExam = true;
+        }
+      } catch (_) {}
+    }
+
+    const hasInMemoryActiveExam = !!(state.questions && state.questions.length > 0 && !state.isExamSubmitted);
+    
+    if ((hasInMemoryActiveExam || hasSavedExam) && !state.isExamSubmitted) {
       btnResumeExam.style.display = "inline-flex";
     } else {
       btnResumeExam.style.display = "none";
@@ -2028,11 +2109,13 @@ document.addEventListener("DOMContentLoaded", () => {
   function resetExam() {
     if (state.timerInterval) {
       clearInterval(state.timerInterval);
+      state.timerInterval = null;
     }
     state.questions = [];
     state.currentQuestionIndex = 0;
     state.answers = {};
     state.flags = {};
+    state.timeLeft = 90 * 60;
     state.selfGradedScores = {};
     state.reviewPagination = {};
     state.isExamSubmitted = false;
@@ -2040,6 +2123,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     localStorage.removeItem("cbeh_active_exam_state_v1");
     localStorage.removeItem("cbeh_saved_simulation");
+    localStorage.removeItem("cbeh_current_screen");
     
     updateResumeButtonUI();
     switchScreen("screen-welcome");
@@ -3005,58 +3089,99 @@ document.addEventListener("DOMContentLoaded", () => {
     
     try {
       if (oldSaved) {
-        const parsed = JSON.parse(oldSaved);
-        if (parsed.questionsPool) {
-          state.questionsPool = parsed.questionsPool;
-          state.questionsPool.forEach(cleanQuestionText);
-        }
-        if (parsed.uploadedSimulationsCount) {
-          state.uploadedSimulationsCount = parsed.uploadedSimulationsCount;
-        }
-        if (parsed.questions && parsed.questions.length > 0) {
-          state.questions = parsed.questions;
-          state.questions.forEach(cleanQuestionText);
-          state.currentQuestionIndex = parsed.currentQuestionIndex || 0;
-          state.answers = parsed.answers || {};
-          state.flags = parsed.flags || {};
-          state.timeLeft = parsed.timeLeft || 90 * 60;
-          state.selfGradedScores = parsed.selfGradedScores || {};
-          state.isExamSubmitted = !!parsed.isExamSubmitted;
-          state.examMode = parsed.examMode || "Full Simulation";
-          state.currentAttemptTimestamp = parsed.currentAttemptTimestamp || null;
-        }
-        // Migrate to separate keys
-        saveQuestionsPool();
-        if (state.questions && state.questions.length > 0) {
-          saveActiveExamState();
-        }
-        localStorage.removeItem("cbeh_app_state_v1");
-      } else {
-        if (savedPool) {
-          const parsedPool = JSON.parse(savedPool);
-          if (parsedPool.questionsPool) {
-            state.questionsPool = parsedPool.questionsPool;
+        try {
+          const parsed = JSON.parse(oldSaved);
+          if (parsed.questionsPool) {
+            state.questionsPool = parsed.questionsPool;
             state.questionsPool.forEach(cleanQuestionText);
           }
-          if (parsedPool.uploadedSimulationsCount) {
-            state.uploadedSimulationsCount = parsedPool.uploadedSimulationsCount;
+          if (parsed.uploadedSimulationsCount) {
+            state.uploadedSimulationsCount = parsed.uploadedSimulationsCount;
+          }
+          if (parsed.questions && parsed.questions.length > 0) {
+            state.questions = parsed.questions;
+            state.questions.forEach(cleanQuestionText);
+            state.currentQuestionIndex = parsed.currentQuestionIndex || 0;
+            state.answers = parsed.answers || {};
+            state.flags = parsed.flags || {};
+            state.timeLeft = parsed.timeLeft || 90 * 60;
+            state.selfGradedScores = parsed.selfGradedScores || {};
+            state.isExamSubmitted = !!parsed.isExamSubmitted;
+            state.examMode = parsed.examMode || "Full Simulation";
+            state.currentAttemptTimestamp = parsed.currentAttemptTimestamp || null;
+          }
+          // Migrate to separate keys
+          saveQuestionsPool();
+          if (state.questions && state.questions.length > 0) {
+            saveActiveExamState();
+          }
+          localStorage.removeItem("cbeh_app_state_v1");
+        } catch (_) {
+          localStorage.removeItem("cbeh_app_state_v1");
+        }
+      } else {
+        if (savedPool) {
+          try {
+            const parsedPool = JSON.parse(savedPool);
+            if (parsedPool.questionsPool) {
+              state.questionsPool = parsedPool.questionsPool;
+              state.questionsPool.forEach(cleanQuestionText);
+            }
+            if (parsedPool.uploadedSimulationsCount) {
+              state.uploadedSimulationsCount = parsedPool.uploadedSimulationsCount;
+            }
+          } catch (_) {
+            localStorage.removeItem("cbeh_questions_pool_v1");
           }
         }
         
+        let examLoaded = false;
         if (savedExam) {
-          const parsedExam = JSON.parse(savedExam);
-          if (parsedExam.questions && parsedExam.questions.length > 0) {
-            state.questions = parsedExam.questions;
-            state.questions.forEach(cleanQuestionText);
-            state.currentQuestionIndex = parsedExam.currentQuestionIndex || 0;
-            state.answers = parsedExam.answers || {};
-            state.flags = parsedExam.flags || {};
-            state.timeLeft = parsedExam.timeLeft || 90 * 60;
-            state.selfGradedScores = parsedExam.selfGradedScores || {};
-            state.reviewPagination = parsedExam.reviewPagination || {};
-            state.isExamSubmitted = !!parsedExam.isExamSubmitted;
-            state.examMode = parsedExam.examMode || "Full Simulation";
-            state.currentAttemptTimestamp = parsedExam.currentAttemptTimestamp || null;
+          try {
+            const parsedExam = JSON.parse(savedExam);
+            if (parsedExam && Array.isArray(parsedExam.questions) && parsedExam.questions.length > 0) {
+              state.questions = parsedExam.questions;
+              state.questions.forEach(cleanQuestionText);
+              state.currentQuestionIndex = (typeof parsedExam.currentQuestionIndex === "number" && parsedExam.currentQuestionIndex >= 0 && parsedExam.currentQuestionIndex < parsedExam.questions.length) ? parsedExam.currentQuestionIndex : 0;
+              state.answers = parsedExam.answers || {};
+              state.flags = parsedExam.flags || {};
+              state.timeLeft = (typeof parsedExam.timeLeft === "number" && parsedExam.timeLeft >= 0) ? parsedExam.timeLeft : 90 * 60;
+              state.selfGradedScores = parsedExam.selfGradedScores || {};
+              state.reviewPagination = parsedExam.reviewPagination || {};
+              state.isExamSubmitted = !!parsedExam.isExamSubmitted;
+              state.examMode = parsedExam.examMode || "Full Simulation";
+              state.currentAttemptTimestamp = parsedExam.currentAttemptTimestamp || null;
+              examLoaded = true;
+            } else {
+              localStorage.removeItem("cbeh_active_exam_state_v1");
+            }
+          } catch (_) {
+            localStorage.removeItem("cbeh_active_exam_state_v1");
+          }
+        }
+        
+        const savedSim = localStorage.getItem("cbeh_saved_simulation");
+        if (savedSim) {
+          try {
+            const parsedSim = JSON.parse(savedSim);
+            if (parsedSim && Array.isArray(parsedSim.questions) && parsedSim.questions.length > 0) {
+              if (!examLoaded) {
+                state.questions = parsedSim.questions;
+                state.questions.forEach(cleanQuestionText);
+                state.currentQuestionIndex = (typeof parsedSim.currentQuestionIndex === "number" && parsedSim.currentQuestionIndex >= 0 && parsedSim.currentQuestionIndex < parsedSim.questions.length) ? parsedSim.currentQuestionIndex : 0;
+                state.answers = parsedSim.answers || {};
+                state.flags = parsedSim.flags || {};
+                state.timeLeft = (typeof parsedSim.timeLeft === "number" && parsedSim.timeLeft >= 0) ? parsedSim.timeLeft : 90 * 60;
+                state.selfGradedScores = parsedSim.selfGradedScores || {};
+                state.isExamSubmitted = !!parsedSim.isExamSubmitted;
+                state.examMode = parsedSim.examMode || "Full Simulation";
+                state.currentAttemptTimestamp = parsedSim.currentAttemptTimestamp || null;
+              }
+            } else {
+              localStorage.removeItem("cbeh_saved_simulation");
+            }
+          } catch (_) {
+            localStorage.removeItem("cbeh_saved_simulation");
           }
         }
       }
@@ -3109,8 +3234,6 @@ document.addEventListener("DOMContentLoaded", () => {
       return true;
     } catch (e) {
       console.error("Error loading app state:", e);
-      localStorage.removeItem("cbeh_questions_pool_v1");
-      localStorage.removeItem("cbeh_active_exam_state_v1");
     }
     return false;
   }
@@ -5140,6 +5263,21 @@ document.addEventListener("DOMContentLoaded", () => {
   globalContext.getModuleScoreEntry = getModuleScoreEntry;
   globalContext.formatAttemptGradeDisplay = formatAttemptGradeDisplay;
   globalContext.safeGetLocalStorageArray = safeGetLocalStorageArray;
+  globalContext.selectOptionByIndex = selectOptionByIndex;
+  globalContext.handleNextQuestion = handleNextQuestion;
+  globalContext.handlePrevQuestion = handlePrevQuestion;
+  globalContext.saveCurrentSimulationProgress = saveCurrentSimulationProgress;
+  globalContext.saveQuestionsPool = saveQuestionsPool;
+  globalContext.saveActiveExamState = saveActiveExamState;
+  globalContext.saveAnswer = saveAnswer;
+  globalContext.renderQuestion = renderQuestion;
+  globalContext.updateResumeButtonUI = updateResumeButtonUI;
+  globalContext.startTimer = startTimer;
+  globalContext.resetExam = resetExam;
+  globalContext.startExamWithQuestions = startExamWithQuestions;
+  globalContext.submitExam = submitExam;
+  globalContext.updateTimerDisplay = updateTimerDisplay;
+  globalContext.loadAppState = loadAppState;
   globalContext.state = state;
 
   // Invoke state loading and manager UI render on startup
