@@ -1578,7 +1578,6 @@ document.addEventListener("DOMContentLoaded", () => {
       actions.appendChild(btnIncorrect);
       actions.appendChild(btnPartial);
       actions.appendChild(btnCorrect);
-      modelBox.appendChild(actions);
       
       comparison.appendChild(userBox);
       comparison.appendChild(modelBox);
@@ -1586,6 +1585,7 @@ document.addEventListener("DOMContentLoaded", () => {
       itemCard.appendChild(headerBar);
       itemCard.appendChild(text);
       itemCard.appendChild(comparison);
+      itemCard.appendChild(actions);
       
       openQuestionsGradingList.appendChild(itemCard);
     });
