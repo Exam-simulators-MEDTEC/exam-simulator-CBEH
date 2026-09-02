@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="index.css?v=43">
+  <link rel="stylesheet" href="index.css?v=44">
   <!-- PDF.js library for client-side PDF parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 </head>
@@ -451,14 +451,14 @@
         </div>
 
         <!-- Warning block for Self-Grading -->
-        <div class="alert-box alert-info">
+        <div class="alert-box alert-info" id="alert-self-grading">
           <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="12" y1="16" x2="12" y2="12"></line>
             <line x1="12" y1="8" x2="12.01" y2="8"></line>
           </svg>
           <div>
-            <strong>Interactive Self-Grading Required:</strong> Your exam contains 16 open questions. Please review them below, compare your answers with the official model answers, and mark them as Correct or Incorrect. Your final score and pass/fail status will update in real time.
+            <strong>Interactive Self-Grading Required:</strong> Your exam contains open questions. Please review them below, compare your answers with the official model answers, and mark them as Correct, Partially Correct (+0.5 pts), or Incorrect. Your final score and pass/fail status will update in real time.
           </div>
         </div>
 
@@ -570,6 +570,6 @@
   </div>
 
   <script src="questions.js"></script>
-  <script src="app.js?v=43"></script>
+  <script src="app.js?v=44"></script>
 </body>
 </html>

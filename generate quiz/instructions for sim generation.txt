@@ -24,10 +24,10 @@ Every question, distractor, and answer rationale must be strictly grounded in th
   3. MODULE 3: EMBRYOLOGY (Questions 55 to 66)[cite: 1, 2]
   4. MODULE 4: INTERDISCIPLINARY (Questions 67 to 70)[cite: 1, 2]
 
-* Required Question Diversity:
+* Required Question Diversity & Shuffling Rules:
   - You MUST include EXACTLY 16 Open Questions distributed across the exam (e.g., 7 in Cell Bio, 5 in Histology, 3 in Embryology, 1 in Interdisciplinary)[cite: 1, 2].
-  - Intermix all question formats throughout the modules (do not clump all MCQs or Matching items together)[cite: 1, 2].
-  - Module 4 (Interdisciplinary) must feature mixed question types (e.g., 1 Multiple Choice, 1 True or False, 1 Fill in the gap, 1 Open Question) integrating molecular biology, tissue morphology, embryogenesis, and clinical pathology[cite: 1, 2].
+  - STRICT RANDOMIZATION RULE: Question types must NOT be grouped or ordered sequentially (e.g., do NOT put all Open Questions first, followed by all Multiple Choice, all True or False, etc.). You MUST continuously mix and shuffle the question formats (MCQs, True/False, True/False Clusters, Matching, Fill in the Gap, Open Questions) randomly throughout each module[cite: 1, 2].
+  - Module 4 (Interdisciplinary) must also feature mixed, randomized question types (e.g., 1 Multiple Choice, 1 True or False, 1 Fill in the gap, 1 Open Question) integrating molecular biology, tissue morphology, embryogenesis, and clinical pathology[cite: 1, 2].
 
 ====================================================================
 3. STRICT PARSER SYNTAX & QUESTION FORMATTING LAWS
@@ -125,7 +125,8 @@ List all answers sequentially numbered 1 to 70 adhering strictly to these format
 ====================================================================
 Before outputting, ensure:
 - [ ] Exactly 70 questions numbered sequentially 1 through 70 without missing or duplicate IDs[cite: 1, 2].
-- [ ] Exactly 16 Open Questions distributed across the test[cite: 1, 2].
+- [ ] Exactly 16 Open Questions distributed across the modules[cite: 1, 2].
+- [ ] Question types are thoroughly scrambled and NOT arranged in sequential blocks of identical formats[cite: 1, 2].
 - [ ] Every question starts with `ID. (Question Type)` with zero spelling errors[cite: 2].
 - [ ] Every `(Fill in the gap)` question includes options `A. `, `B. `, `C. `, `D. ` underneath the sentence[cite: 2].
 - [ ] Module headers are placed before questions 1, 31, 55, and 67[cite: 1, 2].

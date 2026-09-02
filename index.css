@@ -1112,6 +1112,11 @@ h1, h2, h3, h4, h5 {
   border-left: 5px solid var(--color-answered);
 }
 
+.grading-item-card.graded-partial,
+.review-item-card.partial {
+  border-left: 5px solid #f59e0b;
+}
+
 .grading-item-card.graded-incorrect,
 .review-item-card.incorrect {
   border-left: 5px solid var(--color-danger);
@@ -1214,6 +1219,13 @@ h1, h2, h3, h4, h5 {
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.review-status-pill.graded-partial,
+.review-status-pill.status-partial {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
 }
 
 .review-status-pill.graded-incorrect,
@@ -1325,6 +1337,19 @@ h1, h2, h3, h4, h5 {
   color: #ffffff;
   border-color: #ef4444;
   box-shadow: 0 4px 14px rgba(239, 68, 68, 0.35);
+  font-weight: 700;
+}
+
+.grading-btn.partial {
+  border-color: rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+.grading-btn.partial:hover, .grading-btn.partial.active {
+  background-color: #f59e0b;
+  color: #0b0f19;
+  border-color: #f59e0b;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
   font-weight: 700;
 }
 

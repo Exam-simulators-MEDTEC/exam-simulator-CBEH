@@ -1411,6 +1411,12 @@ document.addEventListener("DOMContentLoaded", () => {
     return "cellbio";
   }
 
+  function formatScore(num) {
+    if (num === undefined || num === null || isNaN(num)) return "0";
+    const rounded = Math.round(num * 100) / 100;
+    return rounded.toString();
+  }
+
   function initializeSelfGradingList() {
     openQuestionsGradingList.innerHTML = "";
     
@@ -1419,16 +1425,29 @@ document.addEventListener("DOMContentLoaded", () => {
     // Dynamically update the tab button label text
     const tabBtnGrading = document.getElementById("tab-btn-grading");
     if (tabBtnGrading) {
-      tabBtnGrading.textContent = `Self-Grading (${openQuestions.length} Open Questions)`;
+      tabBtnGrading.textContent = `Self-Grading (${openQuestions.length} Open ${openQuestions.length === 1 ? 'Question' : 'Questions'})`;
+    }
+
+    const alertSelfGrading = document.getElementById("alert-self-grading");
+    if (alertSelfGrading) {
+      alertSelfGrading.style.display = openQuestions.length > 0 ? "flex" : "none";
     }
     
     openQuestions.forEach((q) => {
       const userVal = state.answers[q.id] || "";
-      state.selfGradedScores[q.id] = (state.selfGradedScores[q.id] === 1) ? 1 : 0;
-      const isGraded = state.selfGradedScores[q.id] === 1;
+      const rawVal = state.selfGradedScores[q.id];
+      let currScore = 0;
+      if (rawVal === 1) currScore = 1;
+      else if (rawVal === 0.5) currScore = 0.5;
+      else currScore = 0;
+      state.selfGradedScores[q.id] = currScore;
+      
+      const isFull = currScore === 1;
+      const isPartial = currScore === 0.5;
+      const isZero = currScore === 0;
       
       const itemCard = document.createElement("div");
-      itemCard.className = `grading-item-card ${isGraded ? 'graded-correct' : 'graded-incorrect'}`;
+      itemCard.className = `grading-item-card ${isFull ? 'graded-correct' : (isPartial ? 'graded-partial' : 'graded-incorrect')}`;
       itemCard.id = `grading-card-${q.id}`;
       
       // Top horizontal header bar spanning full width
@@ -1458,8 +1477,16 @@ document.addEventListener("DOMContentLoaded", () => {
       metaRight.className = "review-card-status";
       
       const statusPill = document.createElement("span");
-      statusPill.className = `review-status-pill ${isGraded ? 'graded-correct' : 'graded-incorrect'}`;
-      statusPill.textContent = isGraded ? "✓ Graded: 1 pt" : "✗ Graded: 0 pts";
+      if (isFull) {
+        statusPill.className = "review-status-pill graded-correct";
+        statusPill.textContent = "✓ Graded: 1 pt";
+      } else if (isPartial) {
+        statusPill.className = "review-status-pill graded-partial";
+        statusPill.textContent = "~ Graded: 0.5 pts";
+      } else {
+        statusPill.className = "review-status-pill graded-incorrect";
+        statusPill.textContent = "✗ Graded: 0 pts";
+      }
       
       metaRight.appendChild(statusPill);
       
@@ -1506,37 +1533,50 @@ document.addEventListener("DOMContentLoaded", () => {
       
       const btnIncorrect = document.createElement("button");
       btnIncorrect.type = "button";
-      btnIncorrect.className = `btn grading-btn incorrect ${!isGraded ? 'active' : ''}`;
+      btnIncorrect.className = `btn grading-btn incorrect ${isZero ? 'active' : ''}`;
       btnIncorrect.textContent = "Incorrect (0 pts)";
+
+      const btnPartial = document.createElement("button");
+      btnPartial.type = "button";
+      btnPartial.className = `btn grading-btn partial ${isPartial ? 'active' : ''}`;
+      btnPartial.textContent = "Partially Correct (0.5 pts)";
       
       const btnCorrect = document.createElement("button");
       btnCorrect.type = "button";
-      btnCorrect.className = `btn grading-btn correct ${isGraded ? 'active' : ''}`;
+      btnCorrect.className = `btn grading-btn correct ${isFull ? 'active' : ''}`;
       btnCorrect.textContent = "Correct (1 pt)";
       
-      btnIncorrect.addEventListener("click", () => {
-        btnIncorrect.classList.add("active");
-        btnCorrect.classList.remove("active");
-        itemCard.classList.remove("graded-correct");
-        itemCard.classList.add("graded-incorrect");
-        statusPill.className = "review-status-pill graded-incorrect";
-        statusPill.textContent = "✗ Graded: 0 pts";
-        state.selfGradedScores[q.id] = 0;
+      function setGrade(val) {
+        state.selfGradedScores[q.id] = val;
+        btnIncorrect.classList.toggle("active", val === 0);
+        btnPartial.classList.toggle("active", val === 0.5);
+        btnCorrect.classList.toggle("active", val === 1);
+        
+        itemCard.classList.remove("graded-correct", "graded-partial", "graded-incorrect");
+        statusPill.classList.remove("graded-correct", "graded-partial", "graded-incorrect");
+        
+        if (val === 1) {
+          itemCard.classList.add("graded-correct");
+          statusPill.classList.add("graded-correct");
+          statusPill.textContent = "✓ Graded: 1 pt";
+        } else if (val === 0.5) {
+          itemCard.classList.add("graded-partial");
+          statusPill.classList.add("graded-partial");
+          statusPill.textContent = "~ Graded: 0.5 pts";
+        } else {
+          itemCard.classList.add("graded-incorrect");
+          statusPill.classList.add("graded-incorrect");
+          statusPill.textContent = "✗ Graded: 0 pts";
+        }
         calculateScores();
-      });
+      }
       
-      btnCorrect.addEventListener("click", () => {
-        btnCorrect.classList.add("active");
-        btnIncorrect.classList.remove("active");
-        itemCard.classList.remove("graded-incorrect");
-        itemCard.classList.add("graded-correct");
-        statusPill.className = "review-status-pill graded-correct";
-        statusPill.textContent = "✓ Graded: 1 pt";
-        state.selfGradedScores[q.id] = 1;
-        calculateScores();
-      });
+      btnIncorrect.addEventListener("click", () => setGrade(0));
+      btnPartial.addEventListener("click", () => setGrade(0.5));
+      btnCorrect.addEventListener("click", () => setGrade(1));
       
       actions.appendChild(btnIncorrect);
+      actions.appendChild(btnPartial);
       actions.appendChild(btnCorrect);
       modelBox.appendChild(actions);
       
@@ -1697,61 +1737,46 @@ document.addEventListener("DOMContentLoaded", () => {
     autoQuestionsReviewList.appendChild(masterToolbar);
     
     state.questions.forEach((q) => {
-      let isCorrect = false;
+      let earnedPoints = 0;
       const uAns = state.answers[q.id];
       
       if (q.type === "open") {
-        // Open question score is determined by self-grading
-        isCorrect = state.selfGradedScores[q.id] === 1;
-        
+        earnedPoints = typeof state.selfGradedScores[q.id] === "number" ? state.selfGradedScores[q.id] : 0;
       } else if (q.type === "multiple-choice" || q.type === "true-false" || q.type === "fill-in-the-gap") {
-        isCorrect = uAns === q.correctAnswer;
-        
-        // Render Auto-graded Review item
-        renderAutoReviewCard(q, isCorrect, uAns);
-        
+        const isCorrect = (uAns === q.correctAnswer);
+        earnedPoints = isCorrect ? 1 : 0;
+        renderAutoReviewCard(q, earnedPoints, uAns);
       } else if (q.type === "matching") {
-        // Must match all pairs
-        let allMatched = true;
-        if (!uAns) {
-          allMatched = false;
-        } else {
+        const totalPairs = Object.keys(q.correctAnswers || {}).length;
+        let correctPairs = 0;
+        if (uAns && totalPairs > 0) {
           for (let key in q.correctAnswers) {
-            if (uAns[key] === undefined || uAns[key].toString() !== q.correctAnswers[key].toString()) {
-              allMatched = false;
-              break;
+            if (uAns[key] !== undefined && uAns[key].toString() === q.correctAnswers[key].toString()) {
+              correctPairs++;
             }
           }
         }
-        isCorrect = allMatched;
-        
-        // Render Auto-graded Review item
-        renderAutoReviewCard(q, isCorrect, uAns);
-        
+        earnedPoints = totalPairs > 0 ? (correctPairs / totalPairs) : 0;
+        renderAutoReviewCard(q, earnedPoints, uAns);
       } else if (q.type === "true-false-cluster") {
-        // Must answer all statements correctly
-        let allCorrect = true;
-        if (!uAns) {
-          allCorrect = false;
-        } else {
-          q.statements.forEach(statement => {
-            if (uAns[statement.id] !== statement.correctAnswer) {
-              allCorrect = false;
+        const stmts = Array.isArray(q.statements) ? q.statements : [];
+        const totalStmts = stmts.length;
+        let correctStmts = 0;
+        if (uAns && totalStmts > 0) {
+          stmts.forEach(statement => {
+            if (uAns[statement.id] === statement.correctAnswer) {
+              correctStmts++;
             }
           });
         }
-        isCorrect = allCorrect;
-        
-        // Render Auto-graded Review item
-        renderAutoReviewCard(q, isCorrect, uAns);
+        earnedPoints = totalStmts > 0 ? (correctStmts / totalStmts) : 0;
+        renderAutoReviewCard(q, earnedPoints, uAns);
       }
       
       // Update scores
-      if (isCorrect) {
-        totalScore++;
-        if (moduleScores[q.module]) {
-          moduleScores[q.module].score++;
-        }
+      totalScore += earnedPoints;
+      if (moduleScores[q.module]) {
+        moduleScores[q.module].score += earnedPoints;
       }
     });
     
@@ -1759,7 +1784,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateModuleResultsUI(moduleScores);
     
     // Final Pass/Fail evaluation
-    const overallPercent = (totalScore / state.questions.length) * 100;
+    const overallPercent = state.questions.length > 0 ? (totalScore / state.questions.length) * 100 : 0;
     
     // Passing criteria: >=60% overall AND >=50% in each module (passed automatically if module has 0 questions)
     const passOverall = overallPercent >= 60;
@@ -1771,9 +1796,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const isPassed = passOverall && passCellBio && passHistology && passEmbryo && passInterdisciplinary;
     
     // Calculate Italian university grade (out of 30)
-    const gradeFloat = (totalScore / state.questions.length) * 30;
+    const gradeFloat = state.questions.length > 0 ? (totalScore / state.questions.length) * 30 : 0;
     let gradeStr = "";
-    if (totalScore === state.questions.length) {
+    if (state.questions.length > 0 && Math.abs(totalScore - state.questions.length) < 0.001) {
       gradeStr = "30L";
     } else {
       gradeStr = Math.round(gradeFloat).toString();
@@ -1782,13 +1807,13 @@ document.addEventListener("DOMContentLoaded", () => {
     // Update grade display with conditional coloring
     const resultGradeDisplay = document.getElementById("result-grade-display");
     if (resultGradeDisplay) {
-      const isGradePassing = totalScore / state.questions.length >= 0.6; // 60%
+      const isGradePassing = state.questions.length > 0 && (totalScore / state.questions.length >= 0.6); // 60%
       const gradeColor = isGradePassing ? "var(--color-primary)" : "#f87171";
       resultGradeDisplay.innerHTML = `Grade: <span style="color: ${gradeColor}; font-size: 2.4rem; font-weight: 900;">${gradeStr}</span>`;
     }
 
     // Update Header Badge & Score Text
-    resultScoreSummary.innerHTML = `You answered <strong>${totalScore}</strong> out of <strong>${state.questions.length}</strong> questions correctly (<strong>${overallPercent.toFixed(1)}%</strong>)`;
+    resultScoreSummary.innerHTML = `You scored <strong>${formatScore(totalScore)}</strong> out of <strong>${state.questions.length}</strong> points (<strong>${overallPercent.toFixed(1)}%</strong>)`;
     
     if (isPassed) {
       resultStatusBadge.className = "result-badge pass";
@@ -1816,7 +1841,7 @@ document.addEventListener("DOMContentLoaded", () => {
       id: state.currentAttemptTimestamp,
       date: state.currentAttemptTimestamp,
       mode: state.examMode || "Full Simulation",
-      totalScore: totalScore,
+      totalScore: Math.round(totalScore * 100) / 100,
       totalQuestions: state.questions.length,
       grade: gradeStr,
       isPassed: isPassed,
@@ -1842,7 +1867,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function updateModuleResultsUI(moduleScores) {
     // Cell Bio
     const cb = moduleScores["Cell Biology"];
-    scoreCellBio.textContent = `${cb.score} / ${cb.total}`;
+    scoreCellBio.textContent = `${formatScore(cb.score)} / ${cb.total}`;
     const cbPassing = document.querySelector("#card-result-cellbio .module-passing");
     if (cbPassing) cbPassing.textContent = `Req: >= 50% (${cb.reqPass}/${cb.total})`;
     if (cb.score >= cb.reqPass) {
@@ -1857,7 +1882,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Histology
     const hist = moduleScores["Histology"];
-    scoreHistology.textContent = `${hist.score} / ${hist.total}`;
+    scoreHistology.textContent = `${formatScore(hist.score)} / ${hist.total}`;
     const histPassing = document.querySelector("#card-result-histology .module-passing");
     if (histPassing) histPassing.textContent = `Req: >= 50% (${hist.reqPass}/${hist.total})`;
     if (hist.score >= hist.reqPass) {
@@ -1872,7 +1897,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Embryo
     const emb = moduleScores["Embryology"];
-    scoreEmbryo.textContent = `${emb.score} / ${emb.total}`;
+    scoreEmbryo.textContent = `${formatScore(emb.score)} / ${emb.total}`;
     const embPassing = document.querySelector("#card-result-embryo .module-passing");
     if (embPassing) embPassing.textContent = `Req: >= 50% (${emb.reqPass}/${emb.total})`;
     if (emb.score >= emb.reqPass) {
@@ -1887,7 +1912,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Interdisciplinary
     const ind = moduleScores["Interdisciplinary"];
-    scoreInterdisciplinary.textContent = `${ind.score} / ${ind.total}`;
+    scoreInterdisciplinary.textContent = `${formatScore(ind.score)} / ${ind.total}`;
     const indPassing = document.querySelector("#card-result-interdisciplinary .module-passing");
     if (indPassing) indPassing.textContent = `Req: >= 50% (${ind.reqPass}/${ind.total})`;
     if (ind.score >= ind.reqPass) {
@@ -1901,9 +1926,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function renderAutoReviewCard(q, isCorrect, uAns) {
+  function renderAutoReviewCard(q, pointsEarned, uAns) {
+    const isFull = Math.abs(pointsEarned - 1) < 0.001;
+    const isPartial = pointsEarned > 0.001 && pointsEarned < 0.999;
+    const isZero = pointsEarned <= 0.001;
+
     const card = document.createElement("div");
-    card.className = `review-item-card ${isCorrect ? 'correct' : 'incorrect'}`;
+    card.className = `review-item-card ${isFull ? 'correct' : (isPartial ? 'partial' : 'incorrect')}`;
     
     // Top horizontal header bar spanning full width
     const headerBar = document.createElement("div");
@@ -1932,8 +1961,16 @@ document.addEventListener("DOMContentLoaded", () => {
     metaRight.className = "review-card-status";
     
     const statusPill = document.createElement("span");
-    statusPill.className = `review-status-pill ${isCorrect ? 'status-correct' : 'status-incorrect'}`;
-    statusPill.textContent = isCorrect ? "✓ Correct (+1 pt)" : "✗ Incorrect (0 pts)";
+    if (isFull) {
+      statusPill.className = "review-status-pill status-correct";
+      statusPill.textContent = "✓ Correct (+1 pt)";
+    } else if (isPartial) {
+      statusPill.className = "review-status-pill status-partial";
+      statusPill.textContent = `~ Partial (+${formatScore(pointsEarned)} pts)`;
+    } else {
+      statusPill.className = "review-status-pill status-incorrect";
+      statusPill.textContent = "✗ Incorrect (0 pts)";
+    }
     
     metaRight.appendChild(statusPill);
     
@@ -1949,7 +1986,7 @@ document.addEventListener("DOMContentLoaded", () => {
     
     if (q.type === "multiple-choice" || q.type === "true-false" || q.type === "fill-in-the-gap") {
       const userLine = document.createElement("div");
-      userLine.className = `review-answer-line user ${isCorrect ? 'correct-selection' : ''}`;
+      userLine.className = `review-answer-line user ${isFull ? 'correct-selection' : ''}`;
       
       let userDisplay = uAns ? uAns : "[No selection made]";
       if (q.type === "multiple-choice" && uAns && Array.isArray(q.options)) {
@@ -1968,7 +2005,7 @@ document.addEventListener("DOMContentLoaded", () => {
       correctLine.textContent = `Correct Answer: ${correctDisplay}`;
       
       answersGrid.appendChild(userLine);
-      if (!isCorrect) {
+      if (!isFull) {
         answersGrid.appendChild(correctLine);
       }
       
@@ -2005,8 +2042,8 @@ document.addEventListener("DOMContentLoaded", () => {
           const isStmtCorrect = userVal === correctVal;
           
           stmtLine.innerHTML = `<strong>${statement.id}</strong>: ${statement.text || statement.statement || ''} <br>
-            Your Answer: <span style="color: ${isStmtCorrect ? '#10b981' : '#f87171'}">${userVal || "[No selection]"}</span>
-            ${isStmtCorrect ? '' : ` (Correct: <span style="color: #34d399">${correctVal}</span>)`}`;
+            Your Answer: <span style="color: ${isStmtCorrect ? '#10b981' : '#f87171'}">${userVal !== undefined ? (userVal ? 'True' : 'False') : "[No selection]"}</span>
+            ${isStmtCorrect ? '' : ` (Correct: <span style="color: #34d399">${correctVal ? 'True' : 'False'}</span>)`}`;
           
           answersGrid.appendChild(stmtLine);
         });
@@ -4615,7 +4652,6 @@ document.addEventListener("DOMContentLoaded", () => {
       renderDatabaseUI();
     });
   }
-
   if (dbResetFiltersBtn) {
     dbResetFiltersBtn.addEventListener("click", resetAllDbFilters);
   }
@@ -4625,17 +4661,19 @@ document.addEventListener("DOMContentLoaded", () => {
   // ==========================================
   function evaluateQuestionResult(q) {
     const uAns = state.answers[q.id];
-    let isCorrect = false;
+    let points = 0;
     let userDisplay = "";
     let correctDisplay = "";
     let details = [];
 
     if (q.type === "open") {
-      isCorrect = state.selfGradedScores[q.id] === 1;
+      const selfScore = typeof state.selfGradedScores[q.id] === "number" ? state.selfGradedScores[q.id] : 0;
+      points = selfScore;
       userDisplay = uAns && uAns.trim() ? uAns.trim() : "[No written answer submitted]";
       correctDisplay = q.modelAnswer || q.correctAnswer || "Model answer not provided.";
     } else if (q.type === "multiple-choice") {
-      isCorrect = uAns === q.correctAnswer;
+      const isCorrect = (uAns === q.correctAnswer);
+      points = isCorrect ? 1 : 0;
       if (uAns) {
         const matchOpt = Array.isArray(q.options) ? q.options.find(opt => opt.startsWith(uAns)) : null;
         userDisplay = matchOpt || uAns;
@@ -4649,22 +4687,13 @@ document.addEventListener("DOMContentLoaded", () => {
         correctDisplay = "[Unknown]";
       }
     } else if (q.type === "true-false" || q.type === "fill-in-the-gap") {
-      isCorrect = uAns === q.correctAnswer;
+      const isCorrect = (uAns === q.correctAnswer);
+      points = isCorrect ? 1 : 0;
       userDisplay = uAns || "[No selection made]";
       correctDisplay = q.correctAnswer || "[Unknown]";
     } else if (q.type === "matching") {
-      let allMatched = true;
-      if (!uAns) {
-        allMatched = false;
-      } else {
-        for (let key in q.correctAnswers) {
-          if (uAns[key] === undefined || uAns[key].toString() !== q.correctAnswers[key].toString()) {
-            allMatched = false;
-            break;
-          }
-        }
-      }
-      isCorrect = allMatched;
+      const totalPairs = Object.keys(q.correctAnswers || {}).length;
+      let correctPairs = 0;
 
       if (Array.isArray(q.leftItems) && Array.isArray(q.rightItems)) {
         q.leftItems.forEach((leftItem, idx) => {
@@ -4673,6 +4702,7 @@ document.addEventListener("DOMContentLoaded", () => {
           const userValText = userValIdx !== undefined ? (q.rightItems[userValIdx] || `Item ${userValIdx}`) : "[No match]";
           const correctValText = correctValIdx !== undefined ? (q.rightItems[correctValIdx] || `Item ${correctValIdx}`) : "[Unknown]";
           const pairCorrect = userValIdx !== undefined && correctValIdx !== undefined && userValIdx.toString() === correctValIdx.toString();
+          if (pairCorrect) correctPairs++;
           details.push({
             label: leftItem,
             user: userValText,
@@ -4681,50 +4711,49 @@ document.addEventListener("DOMContentLoaded", () => {
           });
         });
       }
-      userDisplay = isCorrect ? "All pairs correctly matched" : "One or more pairs mismatched";
+      points = totalPairs > 0 ? (correctPairs / totalPairs) : 0;
+      userDisplay = (points === 1) ? "All pairs correctly matched" : (points > 0 ? `Partially matched (${correctPairs}/${totalPairs} pairs)` : "No pairs matched correctly");
       correctDisplay = "Refer to sub-item pairings below";
     } else if (q.type === "true-false-cluster") {
-      let allCorrect = true;
-      if (!uAns) {
-        allCorrect = false;
-      } else if (Array.isArray(q.statements)) {
-        q.statements.forEach(stmt => {
-          if (uAns[stmt.id] !== stmt.correctAnswer) {
-            allCorrect = false;
-          }
-        });
-      }
-      isCorrect = allCorrect;
+      const stmts = Array.isArray(q.statements) ? q.statements : [];
+      const totalStmts = stmts.length;
+      let correctStmts = 0;
 
       if (Array.isArray(q.statements)) {
         q.statements.forEach(stmt => {
           const uVal = uAns && uAns[stmt.id];
           const cVal = stmt.correctAnswer;
           const stmtCorrect = uVal === cVal;
+          if (stmtCorrect) correctStmts++;
           details.push({
             label: `${stmt.id}) ${stmt.text || stmt.statement || ""}`,
-            user: uVal !== undefined ? String(uVal) : "[No answer]",
-            correct: cVal !== undefined ? String(cVal) : "[Unknown]",
+            user: uVal !== undefined ? (uVal ? 'True' : 'False') : "[No answer]",
+            correct: cVal !== undefined ? (cVal ? 'True' : 'False') : "[Unknown]",
             isCorrect: stmtCorrect
           });
         });
       }
-      userDisplay = isCorrect ? "All statements evaluated correctly" : "One or more statements incorrect";
+      points = totalStmts > 0 ? (correctStmts / totalStmts) : 0;
+      userDisplay = (points === 1) ? "All statements evaluated correctly" : (points > 0 ? `Partially correct (${correctStmts}/${totalStmts} statements)` : "No statements correct");
       correctDisplay = "Refer to statement breakdown below";
     }
+
+    const isFull = Math.abs(points - 1) < 0.001;
+    const isPartial = points > 0.001 && points < 0.999;
 
     return {
       id: q.id,
       type: q.type,
       module: q.module,
       question: q.question,
-      isCorrect,
+      isCorrect: isFull,
+      isPartial: isPartial,
+      points: Math.round(points * 100) / 100,
       userDisplay,
       correctDisplay,
       details,
       explanation: q.explanation || "",
-      isSelfGraded: q.type === "open",
-      points: isCorrect ? 1 : 0
+      isSelfGraded: q.type === "open"
     };
   }
 
@@ -4735,7 +4764,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const evaluatedQuestions = state.questions.map(q => evaluateQuestionResult(q));
-    const totalScore = evaluatedQuestions.filter(item => item.isCorrect).length;
+    const totalScore = evaluatedQuestions.reduce((acc, item) => acc + item.points, 0);
     const overallPercent = (totalScore / totalQuestions) * 100;
     
     // Module stats
@@ -4749,7 +4778,7 @@ document.addEventListener("DOMContentLoaded", () => {
     evaluatedQuestions.forEach(item => {
       if (moduleScores[item.module]) {
         moduleScores[item.module].total++;
-        if (item.isCorrect) moduleScores[item.module].score++;
+        moduleScores[item.module].score += item.points;
       }
     });
 
@@ -4765,13 +4794,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const isPassed = passOverall && passCellBio && passHistology && passEmbryo && passInterdisciplinary;
 
     let gradeStr = "";
-    if (totalScore === totalQuestions) {
+    if (Math.abs(totalScore - totalQuestions) < 0.001) {
       gradeStr = "30L";
     } else {
       gradeStr = Math.round((totalScore / totalQuestions) * 30).toString();
     }
 
     const incorrectQuestions = evaluatedQuestions.filter(item => !item.isCorrect);
+
+    function formatScore(n) {
+      return Number.isInteger(n) ? n.toString() : n.toFixed(1).replace(/\.0$/, "");
+    }
 
     // PDF Drawing Setup
     const pageWidth = 595.28;
@@ -4782,12 +4815,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const marginBottom = 45;
     const contentWidth = pageWidth - marginLeft - marginRight;
 
-    const pages = [];
+    let pages = [];
     let currentCommands = [];
     let currentY = marginTop;
 
     function sanitizeText(str) {
-      if (str === null || str === undefined) return "";
+      if (!str) return "";
       return String(str)
         .replace(/[\r\n\t]+/g, " ")
         .replace(/[\u2018\u2019]/g, "'")
@@ -4942,7 +4975,7 @@ document.addEventListener("DOMContentLoaded", () => {
     drawRect(marginLeft, currentY, contentWidth, scoreCardHeight, [0.97, 0.98, 1.0], [0.82, 0.86, 0.92], 1);
 
     drawText("Overall Score", marginLeft + 14, currentY + 10, 8.5, false, [0.4, 0.45, 0.55]);
-    drawText(`${totalScore} / ${totalQuestions} (${overallPercent.toFixed(1)}%)`, marginLeft + 14, currentY + 24, 15, true, [0.08, 0.12, 0.22]);
+    drawText(`${formatScore(totalScore)} / ${totalQuestions} (${overallPercent.toFixed(1)}%)`, marginLeft + 14, currentY + 24, 15, true, [0.08, 0.12, 0.22]);
 
     const gradeColor = isPassed ? [0.06, 0.65, 0.35] : [0.88, 0.2, 0.2];
     drawText("Italian Grade", marginLeft + 180, currentY + 10, 8.5, false, [0.4, 0.45, 0.55]);
@@ -4996,7 +5029,7 @@ document.addEventListener("DOMContentLoaded", () => {
       colX = marginLeft;
       drawText(row.name, colX + 8, currentY + 5, 8.5, true, [0.12, 0.15, 0.2]);
       colX += colWidths[0];
-      drawText(`${st.score} / ${st.total}`, colX + 8, currentY + 5, 8.5, false, [0.2, 0.2, 0.2]);
+      drawText(`${formatScore(st.score)} / ${st.total}`, colX + 8, currentY + 5, 8.5, false, [0.2, 0.2, 0.2]);
       colX += colWidths[1];
       drawText(`${st.reqPass} / ${st.total}`, colX + 8, currentY + 5, 8.5, false, [0.4, 0.4, 0.4]);
       colX += colWidths[2];
@@ -5014,7 +5047,7 @@ document.addEventListener("DOMContentLoaded", () => {
     colX = marginLeft;
     drawText("Total Overall", colX + 8, currentY + 5, 9, true, [0.08, 0.12, 0.22]);
     colX += colWidths[0];
-    drawText(`${totalScore} / ${totalQuestions}`, colX + 8, currentY + 5, 9, true, [0.08, 0.12, 0.22]);
+    drawText(`${formatScore(totalScore)} / ${totalQuestions}`, colX + 8, currentY + 5, 9, true, [0.08, 0.12, 0.22]);
     colX += colWidths[1];
     drawText(`>= 60% Overall`, colX + 8, currentY + 5, 8.5, false, [0.35, 0.4, 0.45]);
     colX += colWidths[2];
